@@ -6,33 +6,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef struct {
-    Mesh3D *items;
-    int count;
-} MeshCache;
-
-static MeshCache g_meshes = {0};
-
-inline static int mesh_cache_add(const Mesh3D *m) {
-    g_meshes.items = realloc(g_meshes.items, sizeof(Mesh3D) * (g_meshes.count + 1));
-    g_meshes.items[g_meshes.count] = *m;
-    return g_meshes.count++;
-}
-
 inline static void free_mesh(Mesh3D *m) {
     free(m->verts);
     free(m->faces);
     m->verts = NULL;
     m->faces = NULL;
     m->nverts = m->nfaces = 0;
-}
-
-inline static void mesh_cache_free_all(void) {
-    for (int i = 0; i < g_meshes.count; i++)
-        free_mesh(&g_meshes.items[i]);
-    free(g_meshes.items);
-    g_meshes.items = NULL;
-    g_meshes.count = 0;
 }
 
 inline static Mesh3D make_quad(float w, float h) {

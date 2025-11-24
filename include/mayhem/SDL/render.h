@@ -4,6 +4,8 @@
 #include "SDL/core.h"
 #include "SDL/shapes.h"
 
+// this file is a goddamn misnomer; only generates edges there is no rasterization or textures being created yet.
+
 typedef struct {
     float diffuse[3];
     float specular[3];
