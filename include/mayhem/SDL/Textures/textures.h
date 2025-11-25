@@ -1,7 +1,7 @@
 #ifndef MHMAPI_TEXTURE_H
 #define MHMAPI_TEXTURE_H
 
-#include "SDL/shapes.h"
+#include "SDL/Mesh/3dshapes.h"
 #include <SDL2/SDL_image.h>
 
 #define MHMAPI_MAX_MESH_TEXTURES 8

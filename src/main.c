@@ -1,10 +1,9 @@
-#include "SDL/camera.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
-#include "SDL/scene.h"
-#include "SDL/colors.h"
+#include "SDL/Scene/scene.h"
 #include "SDL/shapes.h"
-#include "SDL/render.h"
+#include "SDL/Render/render.h"
+#include "SDL/Mesh/3dshapes.h"
 
 static const float W = 1000;
 static const float H = 400;

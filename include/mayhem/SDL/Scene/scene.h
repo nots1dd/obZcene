@@ -1,9 +1,9 @@
 #ifndef MHM_SDL_SCENE_H
 #define MHM_SDL_SCENE_H
 
-#include "SDL/colors.h"
-#include "SDL/mesh.h"
-#include "SDL/texture.h"
+#include "SDL/Colors/colors.h"
+#include "SDL/Mesh/mesh.h"
+#include "SDL/Textures/textures.h"
 #include <stdlib.h>
 
 typedef Vec3 Rot3;

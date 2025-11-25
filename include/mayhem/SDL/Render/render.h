@@ -1,6 +1,7 @@
 #ifndef MHMAPI_RENDER_H
 #define MHMAPI_RENDER_H
 
+#include "SDL/Mesh/3dshapes.h"
 #include "SDL/core.h"
 #include "SDL/shapes.h"
 

@@ -1,4 +1,4 @@
-#include "SDL/texture.h"
+#include "SDL/Textures/textures.h"
 
 static unsigned int g_tex_id_counter = 1;
 
