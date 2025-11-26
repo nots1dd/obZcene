@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include "core.h"
-#include "macros.h"
 
 #ifdef __cplusplus
 extern "C" {

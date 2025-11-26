@@ -9,7 +9,7 @@
 typedef Vec3 Rot3;
 
 typedef struct {
-    Mesh3D **meshes;           /* pointers to meshes (do not copy Mesh3D by value) */
+    OBZ_Mesh3D **meshes;           /* pointers to meshes (do not copy Mesh3D by value) */
     Vec3   *positions;
     Rot3   *rotations;
     OBZ_Color *colors;
@@ -20,10 +20,10 @@ typedef struct {
     Rot3 *rotSpeeds;
 
     float time;
-} Scene;
+} OBZ_Scene;
 
 
-static Scene g_scene = {0};
+static OBZ_Scene g_scene = {0};
 
 inline static void scene_update(float dt) {
     for (int i = 0; i < g_scene.count; i++) {
@@ -48,7 +48,7 @@ inline static void scene_ensure_capacity(int need) {
     if (g_scene.capacity >= need) return;
     int cap = g_scene.capacity ? g_scene.capacity : 8;
     while (cap < need) cap *= 2;
-    g_scene.meshes    = realloc(g_scene.meshes,    sizeof(Mesh3D*) * cap);
+    g_scene.meshes    = realloc(g_scene.meshes,    sizeof(OBZ_Mesh3D*) * cap);
     g_scene.positions = realloc(g_scene.positions, sizeof(Vec3)    * cap);
     g_scene.rotations = realloc(g_scene.rotations, sizeof(Rot3)    * cap);
     g_scene.rotSpeeds = realloc(g_scene.rotSpeeds, sizeof(Rot3) * cap);
@@ -62,7 +62,7 @@ inline static void scene_ensure_capacity(int need) {
    If own == 1, scene_free_all() will call free_mesh() and free() the pointer.
    If own == 0, scene only references the mesh (do not free it in scene_free_all). */
 inline static int scene_add_mesh_ptr(
-    Mesh3D *m,
+    OBZ_Mesh3D *m,
     Vec3 pos,
     Rot3 rot,
     OBZ_Color col,
@@ -92,7 +92,7 @@ inline static int scene_add_mesh_ptr(
 inline static void scene_free_all(void) {
     for (int i = 0; i < g_scene.count; i++) {
         if (g_scene.owned && g_scene.owned[i]) {
-            Mesh3D *m = g_scene.meshes[i];
+            OBZ_Mesh3D *m = g_scene.meshes[i];
             if (m) {
                 free_mesh(m); /* frees verts/faces inside */
                 free(m);      /* free the container struct */
@@ -120,7 +120,7 @@ inline static void scene_free_all(void) {
 }
 
 inline static void scene_add_pyramid(
-    Mesh3D *pyramid_ptr,
+    OBZ_Mesh3D *pyramid_ptr,
     Vec3 pos,
     Rot3 rot_deg,
     Rot3 speed_deg   /* NEW */
@@ -139,7 +139,7 @@ inline static void scene_add_pyramid(
 }
 
 inline static void scene_add_sphere(
-    Mesh3D *sphere_ptr,
+    OBZ_Mesh3D *sphere_ptr,
     float orbit_radius,
     float baseY,
     Rot3 rot_deg,
@@ -173,10 +173,10 @@ inline static void scene_add_room(
     float floorY = -H/2;
     float ceilY  =  H/2;
 
-    Mesh3D *plane = NULL;
+    OBZ_Mesh3D *plane = NULL;
 
     // FLOOR
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(W, D, tiles, tiles);
     scene_add_mesh_ptr(
         plane,
@@ -188,7 +188,7 @@ inline static void scene_add_room(
     );
 
     // CEILING
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(W, D, tiles, tiles);
     scene_add_mesh_ptr(
         plane,
@@ -200,7 +200,7 @@ inline static void scene_add_room(
     );
 
     // BACK WALL
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(W, H, tiles, tiles);
     scene_add_mesh_ptr(
         plane,
@@ -212,7 +212,7 @@ inline static void scene_add_room(
     );
 
     // FRONT WALL
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(W, H, tiles, tiles);
     scene_add_mesh_ptr(
         plane,
@@ -224,7 +224,7 @@ inline static void scene_add_room(
     );
 
     // LEFT WALL
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(D, H, tiles, tiles);
     scene_add_mesh_ptr(
         plane,
@@ -236,7 +236,7 @@ inline static void scene_add_room(
     );
 
     // RIGHT WALL
-    plane = malloc(sizeof(Mesh3D));
+    plane = malloc(sizeof(OBZ_Mesh3D));
     *plane = make_wire_plane(D, H, tiles, tiles);
     scene_add_mesh_ptr(
         plane,

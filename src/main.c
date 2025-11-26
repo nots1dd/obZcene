@@ -10,20 +10,20 @@ static const float H = 400;
 static const float D = 1000;
 static const float margin = 20.0f;   // distance from wall
 
-static Mesh3D *sphere = NULL;
-static Mesh3D *pyramid = NULL;
+static OBZ_Mesh3D *sphere = NULL;
+static OBZ_Mesh3D *pyramid = NULL;
 
 //static OBZ_Texture *quad_tex = NULL;
 
 static void init_scene(void) {
     
-    Mesh3D *cube = malloc(sizeof(Mesh3D));
+    OBZ_Mesh3D *cube = malloc(sizeof(OBZ_Mesh3D));
     *cube = make_cube(100);
 
-    sphere = malloc(sizeof(Mesh3D));
+    sphere = malloc(sizeof(OBZ_Mesh3D));
     *sphere = make_sphere(50, 12);
 
-    pyramid = malloc(sizeof(Mesh3D));
+    pyramid = malloc(sizeof(OBZ_Mesh3D));
     *pyramid = make_pyramid(80, 120);
 
     /* cube */
@@ -94,12 +94,12 @@ static void render(OBZ_Context *ctx) {
     scene_update(0.011f); // ~90fps
 
     for (int i = 0; i < g_scene.count; i++) {
-        Mesh3D *m = g_scene.meshes[i];   /* get pointer */
+        OBZ_Mesh3D *m = g_scene.meshes[i];   /* get pointer */
 
         draw_mesh_wire_camera_fast(
             ctx,
             g_scene.positions[i],
-            m,                                  /* PASS Mesh3D* */
+            m,                                  /* PASS OBZ_Mesh3D* */
             g_scene.rotations[i].x,
             g_scene.rotations[i].y,
             g_scene.rotations[i].z,

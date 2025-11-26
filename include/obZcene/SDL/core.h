@@ -104,23 +104,19 @@ typedef int OBZ_TimerID;
 
 typedef ui32 (*OBZ_TimerFn)(OBZ_Context *ctx, ui32 interval_ms);
 
-OBZ_TimerID
-obz_add_timer(OBZ_Context *ctx,
+OBZ_TimerID obz_add_timer(OBZ_Context *ctx,
                  ui32 interval_ms,
                  OBZ_TimerFn fn);
 
-void
-obz_remove_timer(OBZ_Context *ctx, OBZ_TimerID id);
+void obz_remove_timer(OBZ_Context *ctx, OBZ_TimerID id);
 
 /* ---------- Logging ---------- */
 typedef void (*OBZ_LogFn)(OBZ_Context *ctx,
                              const char *msg);
 
-void
-obz_set_logger(OBZ_Context *ctx, OBZ_LogFn fn);
+void obz_set_logger(OBZ_Context *ctx, OBZ_LogFn fn);
 
-void
-obz_log(OBZ_Context *ctx, const char *fmt, ...);
+void obz_log(OBZ_Context *ctx, const char *fmt, ...);
 
 void obz_renderer_clear(OBZ_Context *ctx, ui8 r, ui8 g, ui8 b);
 void obz_draw_pixel(OBZ_Context *ctx,

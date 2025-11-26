@@ -14,12 +14,12 @@ typedef struct {
 } OBZ_Texture;
 
 typedef struct {
-    Mesh3D *mesh;                  // Mesh associated
+    OBZ_Mesh3D *mesh;                  // Mesh associated
     OBZ_Texture *textures[OBZ_MAX_MESH_TEXTURES];
 } OBZ_MeshTextures;
 
 OBZ_Texture *obz_tex_load_png(const char *path);
-OBZ_MeshTextures *obz_tex_create_for_mesh(Mesh3D *mesh);
+OBZ_MeshTextures *obz_tex_create_for_mesh(OBZ_Mesh3D *mesh);
 
 void obz_tex_free(OBZ_Texture *tex);
 void obz_tex_bind_to_mesh(OBZ_MeshTextures *mt, OBZ_Texture *tex, int slot);

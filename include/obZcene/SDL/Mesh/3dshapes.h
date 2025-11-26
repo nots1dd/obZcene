@@ -15,15 +15,15 @@ typedef struct {
     int (*faces)[4];   // array of quads
     int nfaces;
     Vec2 *uvs;
-} Mesh3D;
+} OBZ_Mesh3D;
 
 /* ------------ FACE ALLOCATOR ------------ */
 OBZ_FORCE_INLINE static int (*alloc_faces(int nfaces))[4] {
     return malloc(sizeof(int[4]) * nfaces);
 }
 
-inline static Mesh3D make_quad(float w, float h) {
-    Mesh3D m;
+inline static OBZ_Mesh3D make_quad(float w, float h) {
+    OBZ_Mesh3D m;
 
     m.nverts = 4;
     m.verts = malloc(sizeof(Vec3) * 4);
@@ -50,8 +50,8 @@ inline static Mesh3D make_quad(float w, float h) {
 }
 
 /* ---------------- Cube generator ---------------- */
-inline static Mesh3D make_cube(float size) {
-    Mesh3D m;
+inline static OBZ_Mesh3D make_cube(float size) {
+    OBZ_Mesh3D m;
     m.nverts = 8;
     m.nfaces = 6;
 
@@ -77,8 +77,8 @@ inline static Mesh3D make_cube(float size) {
     return m;
 }
 
-inline static Mesh3D make_pyramid(float size, float height) {
-    Mesh3D m;
+inline static OBZ_Mesh3D make_pyramid(float size, float height) {
+    OBZ_Mesh3D m;
     m.nverts = 5;
     m.nfaces = 5;
 
@@ -104,11 +104,11 @@ inline static Mesh3D make_pyramid(float size, float height) {
     return m;
 }
 
-inline static Mesh3D make_sphere(float r, int seg) {
+inline static OBZ_Mesh3D make_sphere(float r, int seg) {
     int nverts = (seg+1)*(seg+1);
     int nfaces = seg*seg;
 
-    Mesh3D m;
+    OBZ_Mesh3D m;
     m.nverts = nverts;
     m.nfaces = nfaces;
     m.verts = malloc(sizeof(Vec3) * nverts);

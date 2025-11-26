@@ -2,10 +2,9 @@
 #define OBZ_SDL_MESH_H
 
 #include "SDL/Mesh/3dshapes.h"
-#include "SDL/shapes.h"
 #include <stdlib.h>
 
-inline static void free_mesh(Mesh3D *m) {
+inline static void free_mesh(OBZ_Mesh3D *m) {
     free(m->verts);
     free(m->faces);
     m->verts = NULL;
@@ -13,8 +12,8 @@ inline static void free_mesh(Mesh3D *m) {
     m->nverts = m->nfaces = 0;
 }
 
-inline static Mesh3D make_wire_plane(float w, float h, int tilesX, int tilesY) {
-    Mesh3D m = {0};
+inline static OBZ_Mesh3D make_wire_plane(float w, float h, int tilesX, int tilesY) {
+    OBZ_Mesh3D m = {0};
 
     if (tilesX <= 0) tilesX = 1;
     if (tilesY <= 0) tilesY = 1;

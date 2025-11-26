@@ -50,7 +50,7 @@ void obz_tex_free(OBZ_Texture *tex)
     free(tex);
 }
 
-OBZ_MeshTextures *obz_tex_create_for_mesh(Mesh3D *mesh)
+OBZ_MeshTextures *obz_tex_create_for_mesh(OBZ_Mesh3D *mesh)
 {
     OBZ_MeshTextures *mt = malloc(sizeof(OBZ_MeshTextures));
     if (!mt) return NULL;

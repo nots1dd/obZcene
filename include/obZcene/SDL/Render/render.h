@@ -14,7 +14,7 @@ typedef struct {
 } OBZ_Material;
 
 /* -------------- High-performance version with clipping -------------- */
-inline static void draw_mesh_wire_camera_fast(OBZ_Context *ctx, Vec3 pos, Mesh3D *m,
+inline static void draw_mesh_wire_camera_fast(OBZ_Context *ctx, Vec3 pos, OBZ_Mesh3D *m,
                                               float pitch, float yaw, float roll,
                                               int sw, int sh,
                                               OBZ_Color c,

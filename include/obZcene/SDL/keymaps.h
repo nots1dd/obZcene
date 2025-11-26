@@ -1,5 +1,5 @@
-#ifndef SDL_KEYMAP_H
-#define SDL_KEYMAP_H
+#ifndef OBZ_SDL_KEYMAP_H
+#define OBZ_SDL_KEYMAP_H
 
 /* SDL Scancode Reference (subset of common keys)
    Matches SDL_Scancode enum values exactly.
