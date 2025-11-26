@@ -11,7 +11,7 @@ OBZ_Texture* obz_tex_load_png(const char* path)
     return NULL;
   }
 
-  SDL_Surface* rgba = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_RGBA32, 0);
+  SDL_Surface* rgba = SDL_ConvertSurfaceFormat(surf, SDL_PIXELFORMAT_ABGR8888, 0);
   SDL_FreeSurface(surf);
 
   if (!rgba)

@@ -1,8 +1,18 @@
 #ifndef OBZ_COLORS_H
 #define OBZ_COLORS_H
 
-#include "SDL/shapes.h"
+#include "types.h"
 #include <stdint.h>
+
+/* ---------- Colors ---------- */
+
+// pixel -> ui8 -> uint8_t -> unsigned char (coz char is just int8_t)
+//
+// so yea typedef galore here
+typedef struct
+{
+  pixel r, g, b, a;
+} OBZ_Color;
 
 #ifdef __cplusplus
 extern "C"

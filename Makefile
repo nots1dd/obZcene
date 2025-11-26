@@ -87,7 +87,7 @@ endif
 ###############################################################################
 TARGET := main
 
-SRC := src/main.c src/SDL/core.c src/SDL/shapes.c src/SDL/Textures/textures.c
+SRC := src/main.c src/SDL/core.c src/SDL/Render/render.c src/SDL/Textures/textures.c src/SDL/Camera/camera.c
 
 OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))

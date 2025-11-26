@@ -1,8 +1,8 @@
 #ifndef OBZ_SDL_MESH_3DSHAPES_H
 #define OBZ_SDL_MESH_3DSHAPES_H
 
-#include "SDL/macros.h"
 #include "Utils/vec.h"
+#include "macros.h"
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>

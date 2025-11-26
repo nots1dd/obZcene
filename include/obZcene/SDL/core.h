@@ -2,6 +2,7 @@
 #define SDL_API_H
 
 #include "SDL/Camera/camera.h"
+#include "SDL/Render/render.h"
 #include "types.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
@@ -14,6 +15,19 @@ extern "C"
 #endif
 
 #define OBZ_EVENT_TIMER (SDL_USEREVENT + 1)
+
+  struct OBZ_Window
+  {
+    SDL_Window*   win;
+    SDL_Renderer* ren;
+    SDL_Texture*  tex;
+  };
+
+  typedef struct
+  {
+    int width;
+    int height;
+  } OBZ_Dimensions;
 
   /* ---------- Error codes ---------- */
   typedef enum
@@ -80,7 +94,8 @@ extern "C"
   } OBZ_InputState;
 
   /* ---------- API ---------- */
-  OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Allocator* alloc);
+  OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
+                          const OBZ_Allocator* alloc);
 
   void obz_destroy(OBZ_Context* ctx);
 
@@ -113,29 +128,15 @@ extern "C"
 
   void obz_log(OBZ_Context* ctx, const char* fmt, ...);
 
-  void obz_renderer_clear(OBZ_Context* ctx, ui8 r, ui8 g, ui8 b);
-  void obz_draw_pixel(OBZ_Context* ctx, int x, int y, ui8 r, ui8 g, ui8 b, ui8 a);
-
   /* ---------- Internal structs ---------- */
-  struct OBZ_Window
-  {
-    SDL_Window*   win;
-    SDL_Renderer* ren;
-  };
-
-  typedef struct
-  {
-    int width;
-    int height;
-  } OBZ_Dimensions;
-
   struct OBZ_Context
   {
     OBZ_Callbacks cb;
     OBZ_Allocator alloc;
     OBZ_Window*   main_win;
 
-    OBZ_WindowDesc* win_desc;
+    OBZ_WindowDesc*      win_desc;
+    OBZ_RendererContext* renctx;
 
     OBZ_InputState input;
     ui32           last_time;

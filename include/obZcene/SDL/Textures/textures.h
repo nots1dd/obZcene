@@ -2,16 +2,17 @@
 #define OBZ_TEXTURE_H
 
 #include "SDL/Mesh/3dshapes.h"
+#include "types.h"
 #include <SDL2/SDL_image.h>
 
 #define OBZ_MAX_MESH_TEXTURES 8
 
 typedef struct
 {
-  unsigned int   id;
-  int            width;
-  int            height;
-  unsigned char* pixels; // RGBA pixel data
+  unsigned int id;
+  int          width;
+  int          height;
+  pixel*       pixels; // RGBA pixel data
 } OBZ_Texture;
 
 typedef struct

@@ -3,38 +3,34 @@
 #include "SDL/Scene/scene.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
-#include "SDL/shapes.h"
 
 static const float W      = 1000;
 static const float H      = 400;
 static const float D      = 1000;
 static const float margin = 20.0f; // distance from wall
 
-static OBZ_Mesh3D* sphere  = NULL;
-static OBZ_Mesh3D* pyramid = NULL;
-
-//static OBZ_Texture *quad_tex = NULL;
+static OBZ_Mesh3D*  cube     = NULL;
+static OBZ_Mesh3D*  sphere   = NULL;
+static OBZ_Mesh3D*  pyramid  = NULL;
+static OBZ_Mesh3D*  quad     = NULL;
+static OBZ_Texture* quad_tex = NULL;
 
 static void init_scene(void)
 {
-
-  OBZ_Mesh3D* cube = malloc(sizeof(OBZ_Mesh3D));
-  *cube            = make_cube(100);
-
-  sphere  = malloc(sizeof(OBZ_Mesh3D));
-  *sphere = make_sphere(50, 12);
-
+  cube     = malloc(sizeof(OBZ_Mesh3D));
+  *cube    = make_cube(100);
+  sphere   = malloc(sizeof(OBZ_Mesh3D));
+  *sphere  = make_sphere(50, 12);
   pyramid  = malloc(sizeof(OBZ_Mesh3D));
   *pyramid = make_pyramid(80, 120);
+  quad     = malloc(sizeof(OBZ_Mesh3D));
+  *quad    = make_quad(30, 30);
 
-  /* cube */
-  // general use of mesh ptr
-  scene_add_mesh_ptr(cube, (Vec3){0, 0, 0}, (Rot3){0, 0, 0}, COLOR_RED, 1, (Rot3){0, 0, 0});
+  int cube_id =
+    scene_add_mesh_ptr(cube, (Vec3){0, 0, 0}, (Rot3){0, 0, 0}, COLOR_RED, 1, (Rot3){0, 0, 0});
+  scene_init_textures_for_mesh(cube_id); // initialize textures for cube
 
-  /* room */
-  scene_add_room(W, H, D, // width, height, depth
-                 4,       // tiles (simple)
-                 (Rot3){0, 0, 0}, (Rot3){0, 0, 0});
+  scene_add_room(W, H, D, 4, (Rot3){0, 0, 0}, (Rot3){0, 0, 0});
 
   /* corner pyramids */
   Vec3 pyramid_pos1 = {400, -150, -400};
@@ -42,35 +38,52 @@ static void init_scene(void)
   Vec3 pyramid_pos3 = {-400, -150, 400};
   Vec3 pyramid_pos4 = {-400, -150, -400};
 
-  scene_add_pyramid(pyramid, pyramid_pos1, (Rot3){0, 0, 0}, (Rot3){15, 30, 45});
-  scene_add_pyramid(pyramid, pyramid_pos2, (Rot3){0, 0, 0}, (Rot3){15, 30, 45});
-  scene_add_pyramid(pyramid, pyramid_pos3, (Rot3){0, 0, 0}, (Rot3){15, 30, 45});
-  scene_add_pyramid(pyramid, pyramid_pos4, (Rot3){0, 0, 0}, (Rot3){15, 30, 45});
+  int pid1 =
+    scene_add_pyramid(pyramid, pyramid_pos1, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_BLUE);
+  scene_init_textures_for_mesh(pid1);
+  int pid2 =
+    scene_add_pyramid(pyramid, pyramid_pos2, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_MAGENTA);
+  scene_init_textures_for_mesh(pid2);
+  int pid3 =
+    scene_add_pyramid(pyramid, pyramid_pos3, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_LIME);
+  scene_init_textures_for_mesh(pid3);
+  int pid4 =
+    scene_add_pyramid(pyramid, pyramid_pos4, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_WHITE);
+  scene_init_textures_for_mesh(pid4);
 
-  scene_add_sphere(sphere, 200, 60, (Rot3){0, 0, 0}, (Rot3){0, 60, 0});
+  int sid = scene_add_sphere(sphere, 200, 60, (Rot3){0, 0, 0}, (Rot3){0, 60, 0}, COLOR_YELLOW);
+  scene_init_textures_for_mesh(sid);
 
-  //OBZ_MeshTextures *mt_quad = obz_tex_create_for_mesh(quad);
-  //obz_tex_bind_to_mesh(mt_quad, quad_tex, 0);
+  /* quad */
+  int qid =
+    scene_add_mesh_ptr(quad, (Vec3){100, 100, 0}, (Rot3){0, 0, 0}, COLOR_WHITE, 1, (Rot3){0, 0, 0});
+  scene_init_textures_for_mesh(qid);
+
+  // Load texture for quad
+  quad_tex = obz_tex_load_png("assets/obzen.png");
+  scene_bind_texture_to_mesh(qid, quad_tex, 0);
 }
 
 static void render(OBZ_Context* ctx)
 {
-  obz_renderer_clear(ctx, 15, 15, 25);
+  obz_renderer_clear(ctx->renctx, 15, 15, 25, 0);
 
   scene_update(0.012f); // ~90fps
 
   for (int i = 0; i < g_scene.count; i++)
   {
-    OBZ_Mesh3D* m = g_scene.meshes[i]; /* get pointer */
+    OBZ_Mesh3D*       mesh_i       = g_scene.meshes[i];
+    OBZ_MeshTextures* mesh_texture = g_scene.textures[i];
+    OBZ_Color         mesh_color   = g_scene.colors[i];
 
-    draw_mesh_wire_camera_fast(ctx, g_scene.positions[i], m, /* PASS OBZ_Mesh3D* */
-                               g_scene.rotations[i].x, g_scene.rotations[i].y,
-                               g_scene.rotations[i].z, g_scene.colors[i], ctx->cam);
+    obz_draw_mesh_textured_camera(ctx->renctx, g_scene.positions[i], mesh_i, mesh_texture,
+                                  mesh_color, g_scene.rotations[i].x, g_scene.rotations[i].y,
+                                  g_scene.rotations[i].z, ctx->cam);
   }
 
   // CROSSHAIRS
-  obz_draw_line(ctx, (OBZ_Point){W / 2 - 10, H / 2}, (OBZ_Point){W / 2 + 10, H / 2}, COLOR_WHITE);
-  obz_draw_line(ctx, (OBZ_Point){W / 2, H / 2 - 10}, (OBZ_Point){W / 2, H / 2 + 10}, COLOR_WHITE);
+  obz_draw_line(ctx->renctx, (Vec2){W / 2 - 10, H / 2}, (Vec2){W / 2 + 10, H / 2}, COLOR_WHITE);
+  obz_draw_line(ctx->renctx, (Vec2){W / 2, H / 2 - 10}, (Vec2){W / 2, H / 2 + 10}, COLOR_WHITE);
 }
 
 static void update(OBZ_Context* ctx, float dt)
@@ -166,7 +179,7 @@ static void logger(OBZ_Context* ctx, const char* msg)
 int main(void)
 {
   OBZ_Callbacks cb  = {update, render, event};
-  OBZ_Context*  ctx = obz_create(&cb, NULL);
+  OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
 
   ctx->cam = obz_camera_init((Vec3){0, 0, 0}, W, H, 75.0f);
   obz_camera_set_bounds(&ctx->cam, -W / 2 + margin, W / 2 - margin, -H / 2 + margin, H / 2 - margin,

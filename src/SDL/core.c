@@ -86,7 +86,8 @@ static void A_free(const OBZ_Allocator* a, void* p)
 }
 
 /* ----- Create ----- */
-OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Allocator* alloc)
+OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
+                        const OBZ_Allocator* alloc)
 {
   if (!cb)
     return NULL;
@@ -116,12 +117,16 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Allocator* alloc)
   if (!ctx)
     return NULL;
 
-  ctx->cb             = *cb;
-  ctx->alloc          = alloc ? *alloc : (OBZ_Allocator){0};
-  ctx->main_win       = NULL;
-  ctx->quit           = OBZ_FALSE;
-  ctx->last_time      = SDL_GetTicks();
-  ctx->input.keyboard = SDL_GetKeyboardState(NULL);
+  ctx->cb                  = *cb;
+  ctx->alloc               = alloc ? *alloc : (OBZ_Allocator){0};
+  ctx->main_win            = NULL;
+  ctx->quit                = OBZ_FALSE;
+  ctx->last_time           = SDL_GetTicks();
+  ctx->input.keyboard      = SDL_GetKeyboardState(NULL);
+  ctx->renctx              = malloc(sizeof(OBZ_RendererContext));
+  ctx->renctx->width       = dims.width;
+  ctx->renctx->height      = dims.height;
+  ctx->renctx->framebuffer = malloc(ctx->renctx->width * ctx->renctx->height * 4); // RGBA
 
   return ctx;
 }
@@ -178,6 +183,10 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
   win->win      = w;
   win->ren      = r;
   ctx->main_win = win;
+
+  ctx->main_win->tex =
+    SDL_CreateTexture(ctx->main_win->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
+                      ctx->renctx->width, ctx->renctx->height);
 
   return OBZ_OK;
 }
@@ -269,22 +278,11 @@ OBZ_Result obz_run(OBZ_Context* ctx)
     if (ctx->cb.render)
       ctx->cb.render(ctx);
 
+    SDL_UpdateTexture(ctx->main_win->tex, NULL, ctx->renctx->framebuffer, ctx->renctx->width * 4);
+    SDL_RenderCopy(ctx->main_win->ren, ctx->main_win->tex, NULL, NULL);
+
     SDL_RenderPresent(r);
   }
 
   return OBZ_OK;
-}
-
-void obz_renderer_clear(OBZ_Context* ctx, ui8 r, ui8 g, ui8 b)
-{
-  SDL_Renderer* ren = ctx->main_win->ren;
-  SDL_SetRenderDrawColor(ren, r, g, b, 255);
-  SDL_RenderClear(ren);
-}
-
-void obz_draw_pixel(OBZ_Context* ctx, int x, int y, ui8 r, ui8 g, ui8 b, ui8 a)
-{
-  SDL_Renderer* ren = ctx->main_win->ren;
-  SDL_SetRenderDrawColor(ren, r, g, b, a);
-  SDL_RenderDrawPoint(ren, x, y);
 }

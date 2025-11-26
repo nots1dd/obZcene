@@ -4,26 +4,74 @@
 #include "SDL/Colors/colors.h"
 #include "SDL/Mesh/mesh.h"
 #include "SDL/Textures/textures.h"
+#include "macros.h"
 #include <stdlib.h>
 
 typedef Vec3 Rot3;
 
 typedef struct
 {
-  OBZ_Mesh3D**      meshes; /* pointers to meshes (do not copy Mesh3D by value) */
-  Vec3*             positions;
-  Rot3*             rotations;
-  OBZ_Color*        colors;
-  OBZ_MeshTextures* textures;
-  ui8*              owned; /* 1 => this scene is owner and must free the mesh */
-  int               count;
-  int               capacity;
-  Rot3*             rotSpeeds;
+  OBZ_Mesh3D**       meshes; /* pointers to meshes (do not copy Mesh3D by value) */
+  Vec3*              positions;
+  Rot3*              rotations;
+  OBZ_Color*         colors;
+  OBZ_MeshTextures** textures;
+  ui8*               owned; /* 1 => this scene is owner and must free the mesh */
+  int                count;
+  int                capacity;
+  Rot3*              rotSpeeds;
 
   float time;
 } OBZ_Scene;
 
 static OBZ_Scene g_scene = {0};
+
+inline static void scene_init_textures_for_mesh(int mesh_id)
+{
+  if (mesh_id < 0 || mesh_id >= g_scene.count)
+    return;
+
+  if (!g_scene.textures)
+    g_scene.textures = calloc(g_scene.capacity, sizeof(OBZ_MeshTextures*));
+
+  if (!g_scene.textures[mesh_id])
+  {
+    g_scene.textures[mesh_id] = obz_tex_create_for_mesh(g_scene.meshes[mesh_id]);
+  }
+}
+
+inline static void scene_bind_texture_to_mesh(int mesh_id, OBZ_Texture* tex, int slot)
+{
+  if (mesh_id < 0 || mesh_id >= g_scene.count || !g_scene.textures)
+    return;
+
+  if (!g_scene.textures[mesh_id])
+    scene_init_textures_for_mesh(mesh_id);
+
+  obz_tex_bind_to_mesh(g_scene.textures[mesh_id], tex, slot);
+}
+
+inline static void scene_free_textures(void)
+{
+  if (!g_scene.textures)
+    return;
+
+  for (int i = 0; i < g_scene.count; i++)
+  {
+    if (g_scene.textures[i])
+    {
+      for (int s = 0; s < OBZ_MAX_MESH_TEXTURES; s++)
+      {
+        if (g_scene.textures[i]->textures[s])
+          obz_tex_free(g_scene.textures[i]->textures[s]);
+      }
+      free(g_scene.textures[i]);
+    }
+  }
+
+  free(g_scene.textures);
+  g_scene.textures = NULL;
+}
 
 inline static void scene_update(float dt)
 {
@@ -43,7 +91,7 @@ inline static void scene_update(float dt)
 
 inline static Vec3 deg_to_rad3(Rot3 d)
 {
-  const float k = (float)M_PI / 180.0f;
+  const float k = OBZ_ONE_RAD_IN_DEG;
   return (Rot3){d.x * k, d.y * k, d.z * k};
 }
 
@@ -61,7 +109,7 @@ inline static void scene_ensure_capacity(int need)
   g_scene.rotSpeeds = realloc(g_scene.rotSpeeds, sizeof(Rot3) * cap);
   g_scene.colors    = realloc(g_scene.colors, sizeof(OBZ_Color) * cap);
   g_scene.owned     = realloc(g_scene.owned, sizeof(ui8) * cap);
-  g_scene.textures  = realloc(g_scene.textures, sizeof(OBZ_MeshTextures) * cap);
+  g_scene.textures  = realloc(g_scene.textures, sizeof(OBZ_MeshTextures*) * cap);
   g_scene.capacity  = cap;
 }
 
@@ -85,7 +133,12 @@ inline static int scene_add_mesh_ptr(OBZ_Mesh3D* m, Vec3 pos, Rot3 rot, OBZ_Colo
 
   if (g_scene.textures)
   {
-    g_scene.textures[id] = (OBZ_MeshTextures){0};
+    g_scene.textures[id] = obz_tex_create_for_mesh(m); // allocate on heap
+    if (!g_scene.textures[id])
+    {
+      printf("[WARN] Failed to create textures for mesh %d\n", id);
+      g_scene.textures[id] = NULL;
+    }
   }
 
   g_scene.count++;
@@ -114,7 +167,7 @@ inline static void scene_free_all(void)
   free(g_scene.colors);
   free(g_scene.owned);
   free(g_scene.rotSpeeds);
-  free(g_scene.textures);
+  scene_free_textures();
 
   g_scene.meshes    = NULL;
   g_scene.positions = NULL;
@@ -127,29 +180,22 @@ inline static void scene_free_all(void)
   g_scene.time      = 0.0f;
 }
 
-inline static void scene_add_pyramid(OBZ_Mesh3D* pyramid_ptr, Vec3 pos, Rot3 rot_deg,
-                                     Rot3 speed_deg /* NEW */
-)
+inline static int scene_add_pyramid(OBZ_Mesh3D* pyramid_ptr, Vec3 pos, Rot3 rot_deg, Rot3 speed_deg,
+                                    OBZ_Color col)
 {
   Rot3 rotRad   = deg_to_rad3(rot_deg);
   Vec3 speedRad = deg_to_rad3(speed_deg);
 
-  scene_add_mesh_ptr(pyramid_ptr, pos, rotRad, COLOR_GREEN, 0, speedRad);
+  return scene_add_mesh_ptr(pyramid_ptr, pos, rotRad, col, 0, speedRad);
 }
 
-inline static void scene_add_sphere(OBZ_Mesh3D* sphere_ptr, float orbit_radius, float baseY,
-                                    Rot3 rot_deg, Rot3 speed_deg /* NEW */
-)
+inline static int scene_add_sphere(OBZ_Mesh3D* sphere_ptr, float orbit_radius, float baseY,
+                                   Rot3 rot_deg, Rot3 speed_deg, OBZ_Color col)
 {
-  static const OBZ_Color cols[3] = {COLOR_CYAN, COLOR_MAGENTA, COLOR_YELLOW};
-
   Vec3 rotRad   = deg_to_rad3(rot_deg);
   Vec3 speedRad = deg_to_rad3(speed_deg);
 
-  for (int i = 0; i < 3; i++)
-  {
-    scene_add_mesh_ptr(sphere_ptr, (Vec3){orbit_radius, baseY, 0}, rotRad, cols[i], 0, speedRad);
-  }
+  return scene_add_mesh_ptr(sphere_ptr, (Vec3){orbit_radius, baseY, 0}, rotRad, col, 0, speedRad);
 }
 
 inline static void scene_add_room(float W, float H, float D, int tiles, Rot3 base_rot, Rot3 speed)
@@ -162,32 +208,41 @@ inline static void scene_add_room(float W, float H, float D, int tiles, Rot3 bas
   // FLOOR
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(W, D, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){0, floorY, 0}, (Rot3){-M_PI / 2, 0, 0}, COLOR_GRAY, 1, speed);
+  int pid =
+    scene_add_mesh_ptr(plane, (Vec3){0, floorY, 0}, (Rot3){-M_PI / 2, 0, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
 
   // CEILING
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(W, D, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){0, ceilY, 0}, (Rot3){M_PI / 2, 0, 0}, COLOR_GRAY, 1, speed);
+  pid =
+    scene_add_mesh_ptr(plane, (Vec3){0, ceilY, 0}, (Rot3){M_PI / 2, 0, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
 
   // BACK WALL
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(W, H, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){0, 0, -D / 2}, (Rot3){0, 0, 0}, COLOR_GRAY, 1, speed);
+  pid    = scene_add_mesh_ptr(plane, (Vec3){0, 0, -D / 2}, (Rot3){0, 0, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
 
   // FRONT WALL
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(W, H, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){0, 0, D / 2}, (Rot3){0, M_PI, 0}, COLOR_GRAY, 1, speed);
-
+  pid    = scene_add_mesh_ptr(plane, (Vec3){0, 0, D / 2}, (Rot3){0, M_PI, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
   // LEFT WALL
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(D, H, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){-W / 2, 0, 0}, (Rot3){0, -M_PI / 2, 0}, COLOR_GRAY, 1, speed);
+  pid =
+    scene_add_mesh_ptr(plane, (Vec3){-W / 2, 0, 0}, (Rot3){0, -M_PI / 2, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
 
   // RIGHT WALL
   plane  = malloc(sizeof(OBZ_Mesh3D));
   *plane = make_wire_plane(D, H, tiles, tiles);
-  scene_add_mesh_ptr(plane, (Vec3){W / 2, 0, 0}, (Rot3){0, M_PI / 2, 0}, COLOR_GRAY, 1, speed);
+  pid =
+    scene_add_mesh_ptr(plane, (Vec3){W / 2, 0, 0}, (Rot3){0, M_PI / 2, 0}, COLOR_GRAY, 1, speed);
+  scene_init_textures_for_mesh(pid);
 }
 
 #endif
