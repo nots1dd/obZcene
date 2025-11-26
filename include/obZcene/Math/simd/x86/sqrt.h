@@ -1,13 +1,13 @@
-#ifndef MHM_MATH_SIMD_X86_SQRT_H
-#define MHM_MATH_SIMD_X86_SQRT_H
+#ifndef OBZ_MATH_SIMD_X86_SQRT_H
+#define OBZ_MATH_SIMD_X86_SQRT_H
 
 #include "config.h"
 
-#ifndef MHM_CONFIG_H
-# error "Include MHM_CONFIG_H before this header"
+#ifndef OBZ_CONFIG_H
+# error "Include OBZ_CONFIG_H before this header"
 #endif
 
-#if !(MHM_ARCH_X86_64 || MHM_ARCH_X86_32)
+#if !(OBZ_ARCH_X86_64 || OBZ_ARCH_X86_32)
 # error "This header supports x86 targets only"
 #endif
 
@@ -54,7 +54,7 @@ static inline __m128 __SIMD_rsqrt_ps_newton_sse(__m128 x) {
 }
 
 /* -------------------- AVX2 (256-bit) -------------------- */
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 
 static inline __m256 __SIMD_sqrt_ps_avx2(__m256 x) {
     return _mm256_sqrt_ps(x);
@@ -72,10 +72,10 @@ static inline __m256 __SIMD_rsqrt_ps_newton_avx2(__m256 x) {
                 _mm256_sub_ps(three, _mm256_mul_ps(x, _mm256_mul_ps(y, y)))));
 }
 
-#endif /* MHM_HAS_AVX2 */
+#endif /* OBZ_HAS_AVX2 */
 
 /* -------------------- AVX-512 (512-bit) -------------------- */
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 
 static inline __m512 __SIMD_sqrt_ps_avx512(__m512 x) {
     return _mm512_sqrt_ps(x);
@@ -94,7 +94,7 @@ static inline __m512 __SIMD_rsqrt_ps_newton_avx512(__m512 x) {
                 _mm512_sub_ps(three, _mm512_mul_ps(x, _mm512_mul_ps(y, y)))));
 }
 
-#endif /* MHM_HAS_AVX512 */
+#endif /* OBZ_HAS_AVX512 */
 
 /* =========================================================================
    Scalar Wrappers
@@ -118,7 +118,7 @@ static inline float __SIMD_rsqrt_newton_scalar_sse(float x) {
 }
 
 /* AVX2 Scalar */
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 static inline float __SIMD_sqrt_scalar_avx2(float x) {
     __m256 v = _mm256_set1_ps(x);
     return ((float*)&v)[0];
@@ -136,7 +136,7 @@ static inline float __SIMD_rsqrt_newton_scalar_avx2(float x) {
 #endif
 
 /* AVX-512 Scalar */
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 static inline float __SIMD_sqrt_scalar_avx512(float x) {
     __m512 v = _mm512_set1_ps(x);
     return ((float*)&v)[0];
@@ -190,7 +190,7 @@ static inline void __SIMD_rsqrt_newton_vec_sse(const float *xs, float *out, int 
 }
 
 /* AVX2 Vector */
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 static inline void __SIMD_sqrt_vec_avx2(const float *xs, float *out, int N) {
     int i;
     for (i = 0; i <= N-8; i += 8) {
@@ -223,7 +223,7 @@ static inline void __SIMD_rsqrt_newton_vec_avx2(const float *xs, float *out, int
 #endif
 
 /* AVX-512 Vector */
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 static inline void __SIMD_sqrt_vec_avx512(const float *xs, float *out, int N) {
     int i;
     for (i = 0; i <= N-16; i += 16) {
@@ -255,4 +255,4 @@ static inline void __SIMD_rsqrt_newton_vec_avx512(const float *xs, float *out, i
 }
 #endif
 
-#endif /* MHM_MATH_SIMD_X86_SQRT_H */
+#endif /* OBZ_MATH_SIMD_X86_SQRT_H */

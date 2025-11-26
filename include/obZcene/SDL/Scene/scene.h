@@ -1,5 +1,5 @@
-#ifndef MHM_SDL_SCENE_H
-#define MHM_SDL_SCENE_H
+#ifndef OBZ_SDL_SCENE_H
+#define OBZ_SDL_SCENE_H
 
 #include "SDL/Colors/colors.h"
 #include "SDL/Mesh/mesh.h"
@@ -12,8 +12,8 @@ typedef struct {
     Mesh3D **meshes;           /* pointers to meshes (do not copy Mesh3D by value) */
     Vec3   *positions;
     Rot3   *rotations;
-    MHMAPI_Color *colors;
-    MHMAPI_MeshTextures *textures;
+    OBZ_Color *colors;
+    OBZ_MeshTextures *textures;
     ui8 *owned;            /* 1 => this scene is owner and must free the mesh */
     int count;
     int capacity;
@@ -52,9 +52,9 @@ inline static void scene_ensure_capacity(int need) {
     g_scene.positions = realloc(g_scene.positions, sizeof(Vec3)    * cap);
     g_scene.rotations = realloc(g_scene.rotations, sizeof(Rot3)    * cap);
     g_scene.rotSpeeds = realloc(g_scene.rotSpeeds, sizeof(Rot3) * cap);
-    g_scene.colors    = realloc(g_scene.colors,    sizeof(MHMAPI_Color) * cap);
+    g_scene.colors    = realloc(g_scene.colors,    sizeof(OBZ_Color) * cap);
     g_scene.owned     = realloc(g_scene.owned,     sizeof(ui8) * cap);
-    g_scene.textures  = realloc(g_scene.textures,  sizeof(MHMAPI_MeshTextures) * cap);
+    g_scene.textures  = realloc(g_scene.textures,  sizeof(OBZ_MeshTextures) * cap);
     g_scene.capacity  = cap;
 }
 
@@ -65,7 +65,7 @@ inline static int scene_add_mesh_ptr(
     Mesh3D *m,
     Vec3 pos,
     Rot3 rot,
-    MHMAPI_Color col,
+    OBZ_Color col,
     int own,
     Rot3 rotSpeed
 ) {
@@ -81,7 +81,7 @@ inline static int scene_add_mesh_ptr(
     g_scene.rotSpeeds[id] = rotSpeed;
 
     if (g_scene.textures) {
-        g_scene.textures[id] = (MHMAPI_MeshTextures){0};
+        g_scene.textures[id] = (OBZ_MeshTextures){0};
     }
 
     g_scene.count++;
@@ -145,7 +145,7 @@ inline static void scene_add_sphere(
     Rot3 rot_deg,
     Rot3 speed_deg   /* NEW */
 ) {
-    static const MHMAPI_Color cols[3] = {
+    static const OBZ_Color cols[3] = {
         COLOR_CYAN, COLOR_MAGENTA, COLOR_YELLOW
     };
 

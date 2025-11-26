@@ -1,5 +1,5 @@
-#ifndef MHM_SDL_CAMERA_H
-#define MHM_SDL_CAMERA_H
+#ifndef OBZ_SDL_CAMERA_H
+#define OBZ_SDL_CAMERA_H
 
 #include "Math/macros.h"
 #include "Math/simd/x86/trig_pack.h"
@@ -14,11 +14,11 @@ typedef struct {
     float aspect;    // Aspect ratio (width/height)
     float near;      // Near clipping plane
     float far;       // Far clipping plane
-} Camera;
+} OBZ_Camera;
 
 // Initialize camera with sensible defaults
-inline static Camera camera_init(const Vec3 pos, const float W, const float H, const float fov_degrees) {
-    Camera cam = {
+inline static OBZ_Camera camera_init(const Vec3 pos, const float W, const float H, const float fov_degrees) {
+    OBZ_Camera cam = {
         .position = pos,
         .pitch = 0.0f,
         .yaw = 0.0f,
@@ -32,7 +32,7 @@ inline static Camera camera_init(const Vec3 pos, const float W, const float H, c
 }
 
 // projection with FOV handling
-inline static void project_camera(Vec3 world_pos, Camera cam,
+inline static void project_camera(Vec3 world_pos, OBZ_Camera cam,
                                   int *px, int *py,
                                   int sw, int sh)
 {
@@ -73,4 +73,4 @@ inline static void project_camera(Vec3 world_pos, Camera cam,
     *py = (int)(sh * 0.5f - (y2 / z2) * fov_scale * sh * 0.5f);
 }
 
-#endif /* MHM_SDL_CAMERA_H */
+#endif /* OBZ_SDL_CAMERA_H */

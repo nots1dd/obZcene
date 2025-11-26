@@ -1,5 +1,5 @@
-#ifndef MHM_SDL_MESH_H
-#define MHM_SDL_MESH_H
+#ifndef OBZ_SDL_MESH_H
+#define OBZ_SDL_MESH_H
 
 #include "SDL/Mesh/3dshapes.h"
 #include "SDL/shapes.h"

@@ -2,7 +2,7 @@
 
 static unsigned int g_tex_id_counter = 1;
 
-MHMAPI_Texture *mhmapi_tex_load_png(const char *path)
+OBZ_Texture *obz_tex_load_png(const char *path)
 {
     SDL_Surface *surf = IMG_Load(path);
     if (!surf) {
@@ -18,7 +18,7 @@ MHMAPI_Texture *mhmapi_tex_load_png(const char *path)
         return NULL;
     }
 
-    MHMAPI_Texture *t = malloc(sizeof(MHMAPI_Texture));
+    OBZ_Texture *t = malloc(sizeof(OBZ_Texture));
     if (!t) {
         SDL_FreeSurface(rgba);
         return NULL;
@@ -43,16 +43,16 @@ MHMAPI_Texture *mhmapi_tex_load_png(const char *path)
     return t;
 }
 
-void mhmapi_tex_free(MHMAPI_Texture *tex)
+void obz_tex_free(OBZ_Texture *tex)
 {
     if (!tex) return;
     free(tex->pixels);
     free(tex);
 }
 
-MHMAPI_MeshTextures *mhmapi_tex_create_for_mesh(Mesh3D *mesh)
+OBZ_MeshTextures *obz_tex_create_for_mesh(Mesh3D *mesh)
 {
-    MHMAPI_MeshTextures *mt = malloc(sizeof(MHMAPI_MeshTextures));
+    OBZ_MeshTextures *mt = malloc(sizeof(OBZ_MeshTextures));
     if (!mt) return NULL;
 
     mt->mesh = mesh;
@@ -60,16 +60,16 @@ MHMAPI_MeshTextures *mhmapi_tex_create_for_mesh(Mesh3D *mesh)
     return mt;
 }
 
-void mhmapi_tex_bind_to_mesh(MHMAPI_MeshTextures *mt, MHMAPI_Texture *tex, int slot)
+void obz_tex_bind_to_mesh(OBZ_MeshTextures *mt, OBZ_Texture *tex, int slot)
 {
     if (!mt || !tex) return;
-    if (slot < 0 || slot >= MHMAPI_MAX_MESH_TEXTURES) return;
+    if (slot < 0 || slot >= OBZ_MAX_MESH_TEXTURES) return;
     mt->textures[slot] = tex;
 }
 
-void mhmapi_tex_unbind_from_mesh(MHMAPI_MeshTextures *mt, int slot)
+void obz_tex_unbind_from_mesh(OBZ_MeshTextures *mt, int slot)
 {
     if (!mt) return;
-    if (slot < 0 || slot >= MHMAPI_MAX_MESH_TEXTURES) return;
+    if (slot < 0 || slot >= OBZ_MAX_MESH_TEXTURES) return;
     mt->textures[slot] = NULL;
 }

@@ -92,7 +92,7 @@ SRC := src/main.c src/SDL/core.c src/SDL/shapes.c src/SDL/Textures/textures.c
 OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))
 
-INCLUDES := -I include/mayhem/ -I external/
+INCLUDES := -I include/obZcene/ -I external/
 LINKS := -lm -lSDL2_image
 CFLAGS += -Wall -Wextra -mfma -mavx2 -march=native $(INCLUDES) $(LINKS) $(SDL_CFLAGS) $(PLATFORM_FLAGS)
 LDFLAGS := $(SDL_LDFLAGS)

@@ -2,17 +2,17 @@
 #include "SDL/macros.h"
 #include <stdlib.h>
 
-static MHMAPI_INLINE void draw_pixel(MHMAPI_Context *ctx, int x, int y, MHMAPI_Color c) {
-    mhmapi_draw_pixel(ctx, x, y, c.r, c.g, c.b, c.a);
+static OBZ_FORCE_INLINE void draw_pixel(OBZ_Context *ctx, int x, int y, OBZ_Color c) {
+    obz_draw_pixel(ctx, x, y, c.r, c.g, c.b, c.a);
 }
 
 /* ============================================================
    LINE (Bresenham)
    ============================================================ */
-void mhmapi_draw_line(MHMAPI_Context *ctx,
-                      MHMAPI_Point a,
-                      MHMAPI_Point b,
-                      MHMAPI_Color c)
+void obz_draw_line(OBZ_Context *ctx,
+                      OBZ_Point a,
+                      OBZ_Point b,
+                      OBZ_Color c)
 {
     int x0 = a.x, y0 = a.y;
     int x1 = b.x, y1 = b.y;
@@ -38,9 +38,9 @@ void mhmapi_draw_line(MHMAPI_Context *ctx,
 /* ============================================================
    CIRCLE (Midpoint Algorithm)
    ============================================================ */
-void mhmapi_draw_circle(MHMAPI_Context *ctx,
-                        const MHMAPI_Circle *c,
-                        MHMAPI_Color col)
+void obz_draw_circle(OBZ_Context *ctx,
+                        const OBZ_Circle *c,
+                        OBZ_Color col)
 {
     int x0 = c->cx;
     int y0 = c->cy;
@@ -73,17 +73,17 @@ void mhmapi_draw_circle(MHMAPI_Context *ctx,
 /* ============================================================
    POLYGON (simple line loop)
    ============================================================ */
-void mhmapi_draw_polygon(MHMAPI_Context *ctx,
-                         const MHMAPI_Polygon *poly,
-                         MHMAPI_Color color)
+void obz_draw_polygon(OBZ_Context *ctx,
+                         const OBZ_Polygon *poly,
+                         OBZ_Color color)
 {
     if (!poly || poly->count < 2) return;
 
-    const MHMAPI_Point *p = poly->points;
+    const OBZ_Point *p = poly->points;
 
     for (int i = 0; i < poly->count - 1; i++)
-        mhmapi_draw_line(ctx, p[i], p[i+1], color);
+        obz_draw_line(ctx, p[i], p[i+1], color);
 
     /* close shape */
-    mhmapi_draw_line(ctx, p[poly->count - 1], p[0], color);
+    obz_draw_line(ctx, p[poly->count - 1], p[0], color);
 }

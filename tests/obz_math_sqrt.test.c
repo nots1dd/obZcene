@@ -23,7 +23,7 @@ static inline float frand(float a, float b) {
 // ---------------- Main benchmark ----------------
 int main(void)
 {
-    printf("SQRT & RSQRT SIMD Test: %s\n", MHM_SIMD_DESC);
+    printf("SQRT & RSQRT SIMD Test: %s\n", OBZ_SIMD_DESC);
 
     const int N = 2000000;
     const int RUNS = 2;
@@ -35,32 +35,32 @@ int main(void)
         xs[i] = frand(0.001f, 10000.0f);
 
     // scalar reference
-    double t0 = mhm_now_s();
+    double t0 = OBZ_now_s();
     for (int r = 0; r < RUNS; r++)
         for (int i = 0; i < N; i++)
             out[i] = sqrtf(xs[i]);
-    double t_sqrtf = mhm_now_s() - t0;
+    double t_sqrtf = OBZ_now_s() - t0;
     printf("scalar sqrtf: time=%.6f\n", t_sqrtf);
     
-    t0 = mhm_now_s();
+    t0 = OBZ_now_s();
     for (int r = 0; r < RUNS; r++)
         for (int i = 0; i < N; i++)
             out[i] = rsqrtf(xs[i]);
-    double t_rsqrtf = mhm_now_s() - t0;
+    double t_rsqrtf = OBZ_now_s() - t0;
     printf("scalar rsqrtf: time=%.6f\n\n", t_rsqrtf);
 
     // SSE sqrt
-#if MHM_HAS_SSE
+#if OBZ_HAS_SSE
     BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_sse, (xs, out, N), "SSE sqrt", RUNS, xs, out, N, t_sqrtf);
     BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_vec_sse, (xs, out, N), "SSE rsqrt", RUNS, xs, out, N, t_rsqrtf);
 #endif
 
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
     BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_avx2, (xs, out, N), "AVX2 sqrt", RUNS, xs, out, N, t_sqrtf);
     BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_newton_vec_avx2, (xs, out, N), "AVX2 rsqrt Newton", RUNS, xs, out, N, t_rsqrtf);
 #endif
 
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
     BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_avx512, (xs, out, N), "AVX-512 sqrt", RUNS, xs, out, N, t_sqrtf);
     BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_newton_vec_avx512, (xs, out, N), "AVX-512 rsqrt Newton", RUNS, xs, out, N, t_rsqrtf);
 #endif

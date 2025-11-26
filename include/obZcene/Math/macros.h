@@ -1,5 +1,5 @@
-#ifndef MHM_MATH_MACROS_H
-#define MHM_MATH_MACROS_H
+#ifndef OBZ_MATH_MACROS_H
+#define OBZ_MATH_MACROS_H
 
 #include <stdint.h>
 

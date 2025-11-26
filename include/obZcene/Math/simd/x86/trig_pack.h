@@ -1,11 +1,11 @@
-#ifndef MHM_MATH_SIMD_X86_TRIG_H
-#define MHM_MATH_SIMD_X86_TRIG_H
+#ifndef OBZ_MATH_SIMD_X86_TRIG_H
+#define OBZ_MATH_SIMD_X86_TRIG_H
 
 #include "config.h"
-#ifndef MHM_CONFIG_H
-# error "Include MHM_CONFIG_H before this header"
+#ifndef OBZ_CONFIG_H
+# error "Include OBZ_CONFIG_H before this header"
 #endif
-#if !(MHM_ARCH_X86_64 || MHM_ARCH_X86_32)
+#if !(OBZ_ARCH_X86_64 || OBZ_ARCH_X86_32)
 # error "This header supports x86 targets only"
 #endif
 #include <immintrin.h>
@@ -32,7 +32,7 @@ static inline __m128 __range_reduce_ps_sse(__m128 x) {
     return xr;
 }
 
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 static inline __m256 __range_reduce_ps_avx2(__m256 x) {
     __m256 k = _mm256_round_ps(_mm256_div_ps(x, _mm256_set1_ps(M_2PI_F)), _MM_FROUND_TO_NEAREST_INT |_MM_FROUND_NO_EXC);
     __m256 xr = _mm256_sub_ps(x, _mm256_mul_ps(k, _mm256_set1_ps(M_2PI_F)));
@@ -44,7 +44,7 @@ static inline __m256 __range_reduce_ps_avx2(__m256 x) {
 }
 #endif
 
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 static inline __m512 __range_reduce_ps_avx512(__m512 x) {
     __m512 k = _mm512_roundscale_ps(x, _MM_FROUND_TO_NEAREST_INT |_MM_FROUND_NO_EXC);
     k = _mm512_div_ps(x, _mm512_set1_ps(M_2PI_F));
@@ -108,7 +108,7 @@ static inline __m128 __SIMD_tan_ps_sse(__m128 x) {
 }
 
 /* AVX2 */
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 static inline __m256 __SIMD_sin_ps_avx2(__m256 x) {
     x = __range_reduce_ps_avx2(x);
     __m256 x2 = _mm256_mul_ps(x, x);
@@ -154,7 +154,7 @@ static inline __m256 __SIMD_tan_ps_avx2(__m256 x) {
 #endif
 
 /* AVX-512 */
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 static inline __m512 __SIMD_sin_ps_avx512(__m512 x) {
     x = __range_reduce_ps_avx512(x);
     __m512 x2 = _mm512_mul_ps(x, x);
@@ -217,7 +217,7 @@ static inline float __SIMD_tan_scalar_sse(float x) {
     return _mm_cvtss_f32(__SIMD_tan_ps_sse(v));
 }
 
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 static inline float __SIMD_sin_scalar_avx2(float x) {
     __m256 v = _mm256_set1_ps(x);
     return _mm256_cvtss_f32(__SIMD_sin_ps_avx2(v));
@@ -234,7 +234,7 @@ static inline float __SIMD_tan_scalar_avx2(float x) {
 }
 #endif
 
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 static inline float __SIMD_sin_scalar_avx512(float x) {
     __m512 v = _mm512_set1_ps(x);
     return _mm512_cvtss_f32(__SIMD_sin_ps_avx512(v));
@@ -286,7 +286,7 @@ static inline void __SIMD_tan_vec_sse(const float *xs, float *out, int N) {
         out[i] = __SIMD_tan_scalar_sse(xs[i]);
 }
 
-#if MHM_HAS_AVX2
+#if OBZ_HAS_AVX2
 /* AVX2 */
 static inline void __SIMD_sin_vec_avx2(const float *xs, float *out, int N) {
     int i;
@@ -319,7 +319,7 @@ static inline void __SIMD_tan_vec_avx2(const float *xs, float *out, int N) {
 }
 #endif
 
-#if MHM_HAS_AVX512
+#if OBZ_HAS_AVX512
 /* AVX-512 */
 static inline void __SIMD_sin_vec_avx512(const float *xs, float *out, int N) {
     int i;
@@ -352,4 +352,4 @@ static inline void __SIMD_tan_vec_avx512(const float *xs, float *out, int N) {
 }
 #endif
 
-#endif /* MHM_MATH_SIMD_X86_TRIG_H */
+#endif /* OBZ_MATH_SIMD_X86_TRIG_H */

@@ -2,13 +2,13 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-void mhmapi_set_logger(MHMAPI_Context *ctx, MHMAPI_LogFn fn)
+void obz_set_logger(OBZ_Context *ctx, OBZ_LogFn fn)
 {
     if (ctx) ctx->logger = fn;
 }
 
 
-void mhmapi_log(MHMAPI_Context *ctx, const char *fmt, ...)
+void obz_log(OBZ_Context *ctx, const char *fmt, ...)
 {
     if (!ctx || !fmt || !ctx->logger) return;
 
@@ -23,11 +23,11 @@ void mhmapi_log(MHMAPI_Context *ctx, const char *fmt, ...)
 
 static ui32 timer_thread_trampoline(ui32 interval, void *userdata)
 {
-    MHMAPI_Context *ctx = userdata;
+    OBZ_Context *ctx = userdata;
 
     SDL_Event ev;
     SDL_memset(&ev, 0, sizeof(ev));
-    ev.type = MHMAPI_EVENT_TIMER;
+    ev.type = OBZ_EVENT_TIMER;
     ev.user.code = 0;
 
     SDL_PushEvent(&ev);
@@ -35,9 +35,9 @@ static ui32 timer_thread_trampoline(ui32 interval, void *userdata)
     return interval; /* repeat */
 }
 
-MHMAPI_TimerID mhmapi_add_timer(MHMAPI_Context *ctx,
+OBZ_TimerID obz_add_timer(OBZ_Context *ctx,
                                 ui32 interval_ms,
-                                MHMAPI_TimerFn fn)
+                                OBZ_TimerFn fn)
 {
     if (!ctx || !fn || ctx->timers_count >= 32)
         return 0;
@@ -55,7 +55,7 @@ MHMAPI_TimerID mhmapi_add_timer(MHMAPI_Context *ctx,
     return id;
 }
 
-void mhmapi_remove_timer(MHMAPI_Context *ctx, MHMAPI_TimerID id)
+void obz_remove_timer(OBZ_Context *ctx, OBZ_TimerID id)
 {
     if (!ctx) return;
 
@@ -73,16 +73,16 @@ void mhmapi_remove_timer(MHMAPI_Context *ctx, MHMAPI_TimerID id)
 }
 
 /* ----- Alloc helpers ----- */
-static void *A_malloc(const MHMAPI_Allocator *a, size_t s) {
+static void *A_malloc(const OBZ_Allocator *a, size_t s) {
     return a->alloc ? a->alloc(s) : malloc(s);
 }
-static void A_free(const MHMAPI_Allocator *a, void *p) {
+static void A_free(const OBZ_Allocator *a, void *p) {
     if (a->free) a->free(p); else free(p);
 }
 
 /* ----- Create ----- */
-MHMAPI_Context *mhmapi_create(const MHMAPI_Callbacks *cb,
-                              const MHMAPI_Allocator *alloc)
+OBZ_Context *obz_create(const OBZ_Callbacks *cb,
+                              const OBZ_Allocator *alloc)
 {
     if (!cb) return NULL;
 
@@ -106,14 +106,14 @@ MHMAPI_Context *mhmapi_create(const MHMAPI_Callbacks *cb,
     SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
 #endif
 
-    MHMAPI_Context *ctx =
+    OBZ_Context *ctx =
         alloc ? alloc->alloc(sizeof(*ctx)) : malloc(sizeof(*ctx));
     if (!ctx) return NULL;
 
     ctx->cb = *cb;
-    ctx->alloc = alloc ? *alloc : (MHMAPI_Allocator){0};
+    ctx->alloc = alloc ? *alloc : (OBZ_Allocator){0};
     ctx->main_win = NULL;
-    ctx->quit = MHMAPI_FALSE;
+    ctx->quit = OBZ_FALSE;
     ctx->last_time = SDL_GetTicks();
     ctx->input.keyboard = SDL_GetKeyboardState(NULL);
 
@@ -121,7 +121,7 @@ MHMAPI_Context *mhmapi_create(const MHMAPI_Callbacks *cb,
 }
 
 /* ----- Destroy ----- */
-void mhmapi_destroy(MHMAPI_Context *ctx)
+void obz_destroy(OBZ_Context *ctx)
 {
     if (!ctx) return;
     if (ctx->main_win) {
@@ -135,9 +135,9 @@ void mhmapi_destroy(MHMAPI_Context *ctx)
 }
 
 /* ----- Create window ----- */
-MHMAPI_Result mhmapi_window_create(MHMAPI_Context *ctx)
+OBZ_Result obz_window_create(OBZ_Context *ctx)
 {
-    if (!ctx) return MHMAPI_ERR_INVALID;
+    if (!ctx) return OBZ_ERR_INVALID;
 
     Uint32 flags = ctx->win_desc->resizable ? SDL_WINDOW_RESIZABLE : 0;
 
@@ -148,19 +148,19 @@ MHMAPI_Result mhmapi_window_create(MHMAPI_Context *ctx)
         ctx->win_desc->width, ctx->win_desc->height,
         flags
     );
-    if (!w) return MHMAPI_ERR_SDL;
+    if (!w) return OBZ_ERR_SDL;
 
     SDL_Renderer *r = SDL_CreateRenderer(w, -1, SDL_RENDERER_ACCELERATED);
     if (!r) {
         SDL_DestroyWindow(w);
-        return MHMAPI_ERR_SDL;
+        return OBZ_ERR_SDL;
     }
 
-    MHMAPI_Window *win = A_malloc(&ctx->alloc, sizeof(*win));
+    OBZ_Window *win = A_malloc(&ctx->alloc, sizeof(*win));
     if (!win) {
         SDL_DestroyRenderer(r);
         SDL_DestroyWindow(w);
-        return MHMAPI_ERR_ALLOC;
+        return OBZ_ERR_ALLOC;
     }
 
     SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
@@ -172,11 +172,11 @@ MHMAPI_Result mhmapi_window_create(MHMAPI_Context *ctx)
     ctx->main_win = win;
 
 
-    return MHMAPI_OK;
+    return OBZ_OK;
 }
 
 /* ----- Destroy window ----- */
-void mhmapi_window_destroy(MHMAPI_Window *win)
+void obz_window_destroy(OBZ_Window *win)
 {
     if (!win) return;
     SDL_DestroyRenderer(win->ren);
@@ -185,28 +185,28 @@ void mhmapi_window_destroy(MHMAPI_Window *win)
 }
 
 /* ----- Input accessor ----- */
-MHMAPI_InputState *mhmapi_input(MHMAPI_Context *ctx)
+OBZ_InputState *obz_input(OBZ_Context *ctx)
 {
     return ctx ? &ctx->input : NULL;
 }
 
 /* ----- Main window accessor ----- */
-MHMAPI_Window *mhmapi_main_window(MHMAPI_Context *ctx)
+OBZ_Window *obz_main_window(OBZ_Context *ctx)
 {
     return ctx ? ctx->main_win : NULL;
 }
 
 /* ----- Quit request ----- */
-void mhmapi_request_quit(MHMAPI_Context *ctx)
+void obz_request_quit(OBZ_Context *ctx)
 {
-    ctx->quit = MHMAPI_TRUE;
+    ctx->quit = OBZ_TRUE;
 }
 
 /* ----- Run loop ----- */
-MHMAPI_Result
-mhmapi_run(MHMAPI_Context *ctx)
+OBZ_Result
+obz_run(OBZ_Context *ctx)
 {
-    if (!ctx || !ctx->main_win) return MHMAPI_ERR_INVALID;
+    if (!ctx || !ctx->main_win) return OBZ_ERR_INVALID;
 
     SDL_Event ev;
 
@@ -218,7 +218,7 @@ mhmapi_run(MHMAPI_Context *ctx)
         while (SDL_PollEvent(&ev)) {
             switch (ev.type) {
                 case SDL_QUIT:
-                    ctx->quit = MHMAPI_TRUE;
+                    ctx->quit = OBZ_TRUE;
                     break;
                 case SDL_MOUSEMOTION:
                     ctx->input.mouse_x = ev.motion.x;
@@ -233,7 +233,7 @@ mhmapi_run(MHMAPI_Context *ctx)
                     else if (ev.button.button == SDL_BUTTON_RIGHT)
                         ctx->input.mouse_right = (ev.button.state == SDL_PRESSED);
                     break;
-                case MHMAPI_EVENT_TIMER:
+                case OBZ_EVENT_TIMER:
                     for (int i = 0; i < ctx->timers_count; i++) {
                         ui32 next = ctx->timers_fn[i](ctx, ctx->timers_interval[i]);
                         if (next != ctx->timers_interval[i]) {
@@ -269,17 +269,17 @@ mhmapi_run(MHMAPI_Context *ctx)
         SDL_RenderPresent(r);
     }
 
-    return MHMAPI_OK;
+    return OBZ_OK;
 }
 
-void mhmapi_renderer_clear(MHMAPI_Context *ctx, ui8 r, ui8 g, ui8 b)
+void obz_renderer_clear(OBZ_Context *ctx, ui8 r, ui8 g, ui8 b)
 {
     SDL_Renderer *ren = ctx->main_win->ren;
     SDL_SetRenderDrawColor(ren, r, g, b, 255);
     SDL_RenderClear(ren);
 }
 
-void mhmapi_draw_pixel(MHMAPI_Context *ctx,
+void obz_draw_pixel(OBZ_Context *ctx,
                                int x, int y,
                                ui8 r, ui8 g, ui8 b, ui8 a)
 {

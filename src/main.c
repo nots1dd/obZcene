@@ -13,7 +13,7 @@ static const float margin = 20.0f;   // distance from wall
 static Mesh3D *sphere = NULL;
 static Mesh3D *pyramid = NULL;
 
-//static MHMAPI_Texture *quad_tex = NULL;
+//static OBZ_Texture *quad_tex = NULL;
 
 static void init_scene(void) {
     
@@ -84,12 +84,12 @@ static void init_scene(void) {
         (Rot3){0,60,0}
     );
 
-    //MHMAPI_MeshTextures *mt_quad = mhmapi_tex_create_for_mesh(quad);
-    //mhmapi_tex_bind_to_mesh(mt_quad, quad_tex, 0);
+    //OBZ_MeshTextures *mt_quad = obz_tex_create_for_mesh(quad);
+    //obz_tex_bind_to_mesh(mt_quad, quad_tex, 0);
 }
 
-static void render(MHMAPI_Context *ctx) {
-    mhmapi_renderer_clear(ctx, 15,15,25);
+static void render(OBZ_Context *ctx) {
+    obz_renderer_clear(ctx, 15,15,25);
 
     scene_update(0.011f); // ~90fps
 
@@ -112,23 +112,23 @@ static void render(MHMAPI_Context *ctx) {
 
 
     // CROSSHAIRS
-    mhmapi_draw_line(ctx, 
-        (MHMAPI_Point){W/2 - 10, H/2}, 
-        (MHMAPI_Point){W/2 + 10, H/2}, 
+    obz_draw_line(ctx, 
+        (OBZ_Point){W/2 - 10, H/2}, 
+        (OBZ_Point){W/2 + 10, H/2}, 
         COLOR_WHITE);
-    mhmapi_draw_line(ctx, 
-        (MHMAPI_Point){W/2, H/2 - 10}, 
-        (MHMAPI_Point){W/2, H/2 + 10}, 
+    obz_draw_line(ctx, 
+        (OBZ_Point){W/2, H/2 - 10}, 
+        (OBZ_Point){W/2, H/2 + 10}, 
         COLOR_WHITE);
 }
 
-static void update(MHMAPI_Context *ctx, float dt) {
+static void update(OBZ_Context *ctx, float dt) {
     (void)dt;
-    MHMAPI_InputState *in = mhmapi_input(ctx);
+    OBZ_InputState *in = obz_input(ctx);
     (void)in;
 }
 
-void move_camera_input(Camera *cam, const ui8 *keyboard, float speed) {
+void move_camera_input(OBZ_Camera *cam, const ui8 *keyboard, float speed) {
     float forward = 0, right = 0, up = 0;
     
     // WASD movement
@@ -165,13 +165,13 @@ void move_camera_input(Camera *cam, const ui8 *keyboard, float speed) {
     cam->position.z += forward_z * forward * speed + right_z * right * speed;
 }
 
-static void event(MHMAPI_Context *ctx, const void *ev) {
-    const ui8 *keyboard = mhmapi_input(ctx)->keyboard;
-    MHMAPI_InputState *in = mhmapi_input(ctx);
+static void event(OBZ_Context *ctx, const void *ev) {
+    const ui8 *keyboard = obz_input(ctx)->keyboard;
+    OBZ_InputState *in = obz_input(ctx);
     
     // Escape to quit
     if (keyboard[KC_ESCAPE]) {
-        mhmapi_request_quit(ctx);
+        obz_request_quit(ctx);
         return;
     }
     
@@ -198,34 +198,34 @@ static void event(MHMAPI_Context *ctx, const void *ev) {
     move_camera_input(&ctx->cam, keyboard, speed);
 }
 
-static void logger(MHMAPI_Context *ctx, const char *msg) {
+static void logger(OBZ_Context *ctx, const char *msg) {
     (void)ctx;
     printf("[LOG] %s\n", msg);
 }
 
 int main(void) {
-    MHMAPI_Callbacks cb = { update, render, event };
-    MHMAPI_Context *ctx = mhmapi_create(&cb, NULL);
+    OBZ_Callbacks cb = { update, render, event };
+    OBZ_Context *ctx = obz_create(&cb, NULL);
     
     ctx->cam = camera_init((Vec3){0, 0, 0}, W, H, 75.0f); 
-    //quad_tex = mhmapi_tex_load_png("assets/brick.png");
-    mhmapi_set_logger(ctx, logger);
+    //quad_tex = obz_tex_load_png("assets/brick.png");
+    obz_set_logger(ctx, logger);
     
-    ctx->win_desc = &(MHMAPI_WindowDesc){
+    ctx->win_desc = &(OBZ_WindowDesc){
         .title = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
         .width = W,
         .height = H,
-        .resizable = MHMAPI_TRUE
+        .resizable = OBZ_TRUE
     };
     
-    mhmapi_window_create(ctx);
+    obz_window_create(ctx);
     
     // Initialize scene
     init_scene(); 
-    mhmapi_run(ctx);
+    obz_run(ctx);
     
     // Cleanup
-    mhmapi_destroy(ctx);
+    obz_destroy(ctx);
     
     return 0;
 }

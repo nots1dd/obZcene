@@ -1,4 +1,6 @@
-# Mayhem engine
+# The obZcene engine
+
+A truly obscene piece of work.
 
 WIP
 

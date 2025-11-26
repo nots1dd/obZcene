@@ -1,5 +1,5 @@
-#ifndef MHMAPI_RENDER_H
-#define MHMAPI_RENDER_H
+#ifndef OBZ_RENDER_H
+#define OBZ_RENDER_H
 
 #include "SDL/Mesh/3dshapes.h"
 #include "SDL/core.h"
@@ -11,14 +11,14 @@ typedef struct {
     float diffuse[3];
     float specular[3];
     float shininess;
-} MHMAPI_Material;
+} OBZ_Material;
 
 /* -------------- High-performance version with clipping -------------- */
-inline static void draw_mesh_wire_camera_fast(MHMAPI_Context *ctx, Vec3 pos, Mesh3D *m,
+inline static void draw_mesh_wire_camera_fast(OBZ_Context *ctx, Vec3 pos, Mesh3D *m,
                                               float pitch, float yaw, float roll,
                                               int sw, int sh,
-                                              MHMAPI_Color c,
-                                              Camera cam)
+                                              OBZ_Color c,
+                                              OBZ_Camera cam)
 {
     // Stack allocation for small meshes, heap for large ones
     const int use_heap = m->nverts > 1024;
@@ -57,9 +57,9 @@ inline static void draw_mesh_wire_camera_fast(MHMAPI_Context *ctx, Vec3 pos, Mes
             
             if (px[v1] >= 0 && py[v1] >= 0 && px[v1] < sw && py[v1] < sh &&
                 px[v2] >= 0 && py[v2] >= 0 && px[v2] < sw && py[v2] < sh) {
-                mhmapi_draw_line(ctx, 
-                    (MHMAPI_Point){px[v1], py[v1]}, 
-                    (MHMAPI_Point){px[v2], py[v2]}, c);
+                obz_draw_line(ctx, 
+                    (OBZ_Point){px[v1], py[v1]}, 
+                    (OBZ_Point){px[v2], py[v2]}, c);
             }
         }
     }

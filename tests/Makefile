@@ -1,12 +1,12 @@
 # ----------------- Compiler -----------------
 CC := $(shell command -v gcc 2>/dev/null || command -v clang 2>/dev/null || echo cc)
-INCLUDES := -I ../include/mayhem/
+INCLUDES := -I ../include/obZcene/
 CFLAGS ?= -O3 -msse -mfma -mavx2 -march=native -march=native -Wall -Wextra $(INCLUDES)
 LDFLAGS ?= -lm
 
 # ----------------- Test files -----------------
 TEST_DIR := ./bin
-TEST_SRCS := mhm_math_sqrt.test.c mhm_math_trig.test.c   # add more test source files here
+TEST_SRCS := obz_math_sqrt.test.c obz_math_trig.test.c   # add more test source files here
 TEST_BINS := $(patsubst %.c,$(TEST_DIR)/%,$(notdir $(TEST_SRCS)))
 
 # ----------------- Default target -----------------

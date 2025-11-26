@@ -1,5 +1,5 @@
-#ifndef MHM_SDL_MESH_3DSHAPES_H
-#define MHM_SDL_MESH_3DSHAPES_H
+#ifndef OBZ_SDL_MESH_3DSHAPES_H
+#define OBZ_SDL_MESH_3DSHAPES_H
 
 
 #include "Math/macros.h"
@@ -18,7 +18,7 @@ typedef struct {
 } Mesh3D;
 
 /* ------------ FACE ALLOCATOR ------------ */
-MHMAPI_INLINE static int (*alloc_faces(int nfaces))[4] {
+OBZ_FORCE_INLINE static int (*alloc_faces(int nfaces))[4] {
     return malloc(sizeof(int[4]) * nfaces);
 }
 
