@@ -1,56 +1,52 @@
 #ifndef OBZ_SHAPES_H
 #define OBZ_SHAPES_H
 
-#include <stdint.h>
 #include "core.h"
+#include <stdint.h>
 
 #ifdef __cplusplus
-extern "C" {
+extern "C"
+{
 #endif
 
-/* ---------- Basic shapes ---------- */
+  /* ---------- Basic shapes ---------- */
 
-typedef struct {
+  typedef struct
+  {
     int x, y;
-} OBZ_Point;
+  } OBZ_Point;
 
-typedef struct {
+  typedef struct
+  {
     int x, y, w, h;
-} OBZ_Rect;
+  } OBZ_Rect;
 
-typedef struct {
+  typedef struct
+  {
     int cx, cy;
     int radius;
-} OBZ_Circle;
+  } OBZ_Circle;
 
-/* ---------- Colors ---------- */
+  /* ---------- Colors ---------- */
 
-typedef struct {
+  typedef struct
+  {
     ui8 r, g, b, a;
-} OBZ_Color;
+  } OBZ_Color;
 
-void
-obz_draw_circle(OBZ_Context *ctx,
-                   const OBZ_Circle *c,
-                   OBZ_Color color);
+  void obz_draw_circle(OBZ_Context* ctx, const OBZ_Circle* c, OBZ_Color color);
 
-void
-obz_draw_line(OBZ_Context *ctx,
-                 OBZ_Point a,
-                 OBZ_Point b,
-                 OBZ_Color color);
+  void obz_draw_line(OBZ_Context* ctx, OBZ_Point a, OBZ_Point b, OBZ_Color color);
 
-/* Polygon (simple convex) */
+  /* Polygon (simple convex) */
 
-typedef struct {
-    const OBZ_Point *points;
-    int count;
-} OBZ_Polygon;
+  typedef struct
+  {
+    const OBZ_Point* points;
+    int              count;
+  } OBZ_Polygon;
 
-void
-obz_draw_polygon(OBZ_Context *ctx,
-                    const OBZ_Polygon *poly,
-                    OBZ_Color color);
+  void obz_draw_polygon(OBZ_Context* ctx, const OBZ_Polygon* poly, OBZ_Color color);
 
 #ifdef __cplusplus
 }

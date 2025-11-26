@@ -180,4 +180,17 @@ rebuild: clean all
 # include .d files
 -include $(DEPS)
 
+###############################################################################
+# Code formatting
+###############################################################################
+FORMAT_DIRS := src include
+FORMAT_FILES := $(shell find $(FORMAT_DIRS) -type f \( -name "*.c" -o -name "*.h" \))
+
+format:
+	@echo "Formatting source files..."
+	@for f in $(FORMAT_FILES); do \
+		printf "FMT     %s\n" "$$f"; \
+		clang-format -i "$$f"; \
+	done
+
 .PHONY: all clean info rebuild

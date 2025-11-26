@@ -1,76 +1,139 @@
 #ifndef OBZ_SDL_CAMERA_H
 #define OBZ_SDL_CAMERA_H
 
-#include "Math/macros.h"
 #include "Math/simd/x86/trig_pack.h"
+#include "Utils/vec.h"
 #include <math.h>
+#include <stdbool.h>
 
-typedef struct {
-    Vec3 position;   // Camera position in world
-    float pitch;     // Rotation up/down (radians)
-    float yaw;       // Rotation left/right (radians)
-    float roll;      // Rotation tilt (radians)
-    float fov;       // Field of view in radians
-    float aspect;    // Aspect ratio (width/height)
-    float near;      // Near clipping plane
-    float far;       // Far clipping plane
+typedef struct
+{
+  Vec3 position;  // Camera position
+  Vec3 direction; // Normalized direction vector (camera forward)
+  Vec3 velocity;  // Forward velocity (units per second or per step)
+
+  float pitch;
+  float yaw;
+  float roll;
+
+  float fov;
+  //float aspect;
+  float near;
+  float far;
+  
+  bool  has_bounds;
+  float min_x, max_x;
+  float min_y, max_y;
+  float min_z, max_z;
+
 } OBZ_Camera;
 
 // Initialize camera with sensible defaults
-inline static OBZ_Camera camera_init(const Vec3 pos, const float W, const float H, const float fov_degrees) {
-    OBZ_Camera cam = {
-        .position = pos,
-        .pitch = 0.0f,
-        .yaw = 0.0f,
-        .roll = 0.0f,
-        .fov = fov_degrees * M_PI / 180.0f,  // Convert to radians
-        .aspect = W / H,
-        .near = 0.1f,
-        .far = 5*W
-    };
-    return cam;
+inline static OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg)
+{
+  float pitch = 0.0f;
+  float yaw   = 0.0f;
+
+  Vec3 dir = {cosf(pitch) * sinf(yaw), sinf(pitch), cosf(pitch) * cosf(yaw)};
+
+  OBZ_Camera cam = {.position  = pos,
+                    .direction = dir,
+                    .velocity  = obz_vec3(0, 0, 0),
+
+                    .pitch = pitch,
+                    .yaw   = yaw,
+                    .roll  = 0.0f,
+
+                    .fov    = fov_deg * M_PI / 180.0f,
+                    //.aspect = W / H,
+                    .near   = 0.1f,
+                    .far    = 5 * W};
+
+  return cam;
+}
+
+inline void obz_camera_update(OBZ_Camera* cam, float dt)
+{
+  cam->position.x += cam->velocity.x * dt;
+  cam->position.y += cam->velocity.y * dt;
+  cam->position.z += cam->velocity.z * dt;
+
+  if (cam->has_bounds)
+  {
+    if (cam->position.x < cam->min_x)
+      cam->position.x = cam->min_x;
+    if (cam->position.x > cam->max_x)
+      cam->position.x = cam->max_x;
+    if (cam->position.y < cam->min_y)
+      cam->position.y = cam->min_y;
+    if (cam->position.y > cam->max_y)
+      cam->position.y = cam->max_y;
+    if (cam->position.z < cam->min_z)
+      cam->position.z = cam->min_z;
+    if (cam->position.z > cam->max_z)
+      cam->position.z = cam->max_z;
+  }
+}
+
+static inline void obz_camera_set_bounds(OBZ_Camera* cam, float min_x, float max_x, float min_y,
+                                         float max_y, float min_z, float max_z)
+{
+  cam->has_bounds = true;
+  cam->min_x      = min_x;
+  cam->max_x      = max_x;
+  cam->min_y      = min_y;
+  cam->max_y      = max_y;
+  cam->min_z      = min_z;
+  cam->max_z      = max_z;
+}
+
+inline static void obz_camera_update_direction(OBZ_Camera* cam)
+{
+  float cp = cosf(cam->pitch);
+  float sp = sinf(cam->pitch);
+  float cy = cosf(cam->yaw);
+  float sy = sinf(cam->yaw);
+
+  cam->direction.x = cp * sy;
+  cam->direction.y = sp;
+  cam->direction.z = cp * cy;
 }
 
 // projection with FOV handling
-inline static void project_camera(Vec3 world_pos, OBZ_Camera cam,
-                                  int *px, int *py,
-                                  int sw, int sh)
+inline static void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw,
+                                      int sh)
 {
-    // Transform to camera space
-    float dx = world_pos.x - cam.position.x;
-    float dy = world_pos.y - cam.position.y;
-    float dz = world_pos.z - cam.position.z;
-    
-    // Apply yaw rotation (around y axis)
-    float cy = cosf(cam.yaw);
-    float sy = sinf(cam.yaw);
-    float x1 = dx * cy + dz * sy;
-    float z1 = -dx * sy + dz * cy;
-    
-    // Apply pitch rotation (around x axis)
-    float cp = cosf(cam.pitch);
-    float sp = sinf(cam.pitch);
-    float y1 = dy * cp - z1 * sp;
-    float z2 = dy * sp + z1 * cp;
-    
-    // Apply roll rotation (optional, usually 0) (around z axis)
-    float cr = cosf(cam.roll);
-    float sr = sinf(cam.roll);
-    float x2 = x1 * cr - y1 * sr;
-    float y2 = x1 * sr + y1 * cr;
-    
-    // Clip to near plane
-    if (z2 < cam.near) {
-        *px = -1;
-        *py = -1;
-        return;
-    }
-    
-    // Perspective projection with proper FOV
-    float fov_scale = 1.0f / tanf(cam.fov * 0.5f);
-    
-    *px = (int)(sw * 0.5f + (x2 / z2) * fov_scale * sh * 0.5f);
-    *py = (int)(sh * 0.5f - (y2 / z2) * fov_scale * sh * 0.5f);
+  // forward = cam.direction
+  Vec3 fwd = cam.direction;
+  obz_vec3_norm(fwd);
+
+  // build right and up from yaw/pitch/roll or from direction
+  Vec3 world_up = {0, 1, 0};
+
+  Vec3 right = obz_vec3_cross(world_up, fwd);
+  obz_vec3_norm(right);
+
+  Vec3 up = obz_vec3_cross(fwd, right);
+
+  // vector from camera to point
+  Vec3 d = obz_vec3_sub(world_pos, cam.position);
+
+  // transform to camera space
+  float x = obz_vec3_dot(d, right);
+  float y = obz_vec3_dot(d, up);
+  float z = obz_vec3_dot(d, fwd);
+
+  if (z < cam.near)
+  {
+    *px = -1;
+    *py = -1;
+    return;
+  }
+
+  float f = 1.0f / tanf(cam.fov * 0.5f);
+
+  *px = (int)(sw * 0.5f + (x / z) * f * sh * 0.5f);
+  *py = (int)(sh * 0.5f - (y / z) * f * sh * 0.5f);
 }
 
 #endif /* OBZ_SDL_CAMERA_H */
