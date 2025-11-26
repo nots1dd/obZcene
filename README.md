@@ -2,6 +2,8 @@
 
 A truly obscene piece of work.
 
+[obZcene](./assets/obZcene.mp4)
+
 WIP
 
 ## Aim 
