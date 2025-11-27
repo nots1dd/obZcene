@@ -34,7 +34,6 @@ extern "C"
    ========================================================== */
   OBZ_API void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, OBZ_Color color);
   OBZ_API void obz_draw_line(OBZ_RendererContext* ctx, Vec2 p0, Vec2 p1, OBZ_Color color);
-
   OBZ_API void obz_draw_mesh_textured_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh,
                                              OBZ_MeshTextures* textures, OBZ_Color color,
                                              float pitch, float yaw, float roll, OBZ_Camera cam);

@@ -65,7 +65,8 @@ SRC := \
     src/SDL/Render/render.c \
     src/SDL/Textures/textures.c \
     src/SDL/Camera/camera.c \
-    src/Utils/vec.c
+		src/SDL/Scene/scene.c \
+    src/Utils/vec.c \
 
 OBJ  := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))
@@ -98,30 +99,6 @@ CLANG_FORMAT := $(shell command -v clang-format 2>/dev/null)
 CLANG_TIDY  := $(shell command -v clang-tidy 2>/dev/null)
 
 SRC_FILES := $(shell find src include -type f \( -name "*.c" -o -name "*.h" \))
-
-# Format source files recursively
-format:
-ifeq ($(CLANG_FORMAT),)
-	@echo "clang-format not found, skipping format."
-else
-	@echo "Running clang-format..."
-	@for f in $(SRC_FILES); do \
-		printf "$(COLOR_FMT)FMT$(COLOR_RST)  %s\n" "$$f"; \
-		$(CLANG_FORMAT) -i "$$f"; \
-	done
-endif
-
-# Run clang-tidy recursively
-tidy:
-ifeq ($(CLANG_TIDY),)
-	@echo "clang-tidy not found, skipping static analysis."
-else
-	@echo "Running clang-tidy..."
-	@for f in $(SRC_FILES); do \
-		printf "$(COLOR_TIDY)TIDY$(COLOR_RST) %s\n" "$$f"; \
-		$(CLANG_TIDY) "$$f" --; \
-	done
-endif
 
 ###############################################################################
 # Rules
@@ -164,7 +141,7 @@ $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
 # Build objects
-$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR) $(DEP_DIR)
+$(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
 	@mkdir -p $(dir $(DEP_DIR)/$*.d)
 	$(ECHO_CC_CMD)
@@ -189,7 +166,31 @@ install: $(BIN_DIR)/$(TARGET)
 uninstall:
 	rm -f $(PREFIX)/bin/$(TARGET)
 
+# Code formatting
+format:
+ifeq ($(CLANG_FORMAT),)
+	@echo "clang-format not found, skipping."
+else
+	@echo "Running clang-format..."
+	@for f in $(SRC_FILES); do \
+		printf "$(COLOR_FMT)FMT$(COLOR_RST)  %s\n" "$$f"; \
+		$(CLANG_FORMAT) -i "$$f"; \
+	done
+endif
+
+# Run clang-tidy recursively
+tidy:
+ifeq ($(CLANG_TIDY),)
+	@echo "clang-tidy not found, skipping static analysis."
+else
+	@echo "Running clang-tidy..."
+	@for f in $(SRC_FILES); do \
+		printf "$(COLOR_TIDY)TIDY$(COLOR_RST) %s\n" "$$f"; \
+		$(CLANG_TIDY) "$$f" --; \
+	done
+endif
+
 # Include dependency files
 -include $(DEPS)
 
-.PHONY: all clean rebuild info install uninstall
+.PHONY: all clean rebuild info install uninstall format tidy

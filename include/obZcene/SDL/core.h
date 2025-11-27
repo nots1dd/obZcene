@@ -3,6 +3,7 @@
 
 #include "SDL/Camera/camera.h"
 #include "SDL/Render/render.h"
+#include "SDL/Scene/scene.h"
 #include "obz_log.h"
 #include "types.h"
 #include <SDL2/SDL.h>
@@ -150,6 +151,7 @@ extern "C"
     int         timers_count;
 
     OBZ_Camera cam;
+    OBZ_Scene* scene;
   };
 
 #ifdef __cplusplus

@@ -5,7 +5,8 @@
 #include "types.h"
 #include <SDL2/SDL_image.h>
 
-#define OBZ_MAX_MESH_TEXTURES 8
+// can change this as time goes on but 16 is enough for now
+#define OBZ_MAX_MESH_TEXTURES 16
 
 typedef struct
 {

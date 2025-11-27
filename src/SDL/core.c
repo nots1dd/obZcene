@@ -1,5 +1,4 @@
 #include "SDL/core.h"
-#include "SDL/Scene/scene.h"
 #include <stdarg.h>
 #include <stdio.h>
 
@@ -151,7 +150,6 @@ void obz_destroy(OBZ_Context* ctx)
     return;
 
   OBZ_LOG_INFO(NULL, "Destroying obZcene scene and context...");
-  scene_free_all();
 
   if (ctx->main_win)
   {

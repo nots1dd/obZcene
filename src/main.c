@@ -1,90 +1,26 @@
-#include "SDL/Mesh/3dshapes.h"
 #include "SDL/Render/render.h"
-#include "SDL/Scene/scene.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
-#include "obz_log.h"
+#include "obZcene.h"
 
 DECLARE_OBZ_GLOBAL_LOGGER();
 
-static const float W      = 1000;
-static const float H      = 400;
-static const float D      = 1000;
-static const float margin = 20.0f; // distance from wall
-
-static OBZ_Mesh3D*  cube     = NULL;
-static OBZ_Mesh3D*  sphere   = NULL;
-static OBZ_Mesh3D*  pyramid  = NULL;
-static OBZ_Mesh3D*  quad     = NULL;
-static OBZ_Texture* quad_tex = NULL;
-
-static void init_scene(void)
-{
-  cube     = malloc(sizeof(OBZ_Mesh3D));
-  *cube    = make_cube(100);
-  sphere   = malloc(sizeof(OBZ_Mesh3D));
-  *sphere  = make_sphere(50, 12);
-  pyramid  = malloc(sizeof(OBZ_Mesh3D));
-  *pyramid = make_pyramid(80, 120);
-  quad     = malloc(sizeof(OBZ_Mesh3D));
-  *quad    = make_quad(30, 30);
-
-  int cube_id =
-    scene_add_mesh_ptr(cube, (Vec3){0, 0, 0}, (Rot3){0, 0, 0}, COLOR_RED, 1, (Rot3){0, 0, 0});
-  scene_init_textures_for_mesh(cube_id); // initialize textures for cube
-
-  scene_add_room(W, H, D, 4, (Rot3){0, 0, 0}, (Rot3){0, 0, 0});
-
-  /* corner pyramids */
-  Vec3 pyramid_pos1 = {400, -150, -400};
-  Vec3 pyramid_pos2 = {400, -150, 400};
-  Vec3 pyramid_pos3 = {-400, -150, 400};
-  Vec3 pyramid_pos4 = {-400, -150, -400};
-
-  int pid1 =
-    scene_add_pyramid(pyramid, pyramid_pos1, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_BLUE);
-  scene_init_textures_for_mesh(pid1);
-  int pid2 =
-    scene_add_pyramid(pyramid, pyramid_pos2, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_MAGENTA);
-  scene_init_textures_for_mesh(pid2);
-  int pid3 =
-    scene_add_pyramid(pyramid, pyramid_pos3, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_LIME);
-  scene_init_textures_for_mesh(pid3);
-  int pid4 =
-    scene_add_pyramid(pyramid, pyramid_pos4, (Rot3){0, 0, 0}, (Rot3){15, 30, 45}, COLOR_WHITE);
-  scene_init_textures_for_mesh(pid4);
-
-  int sid = scene_add_sphere(sphere, 200, 60, (Rot3){0, 0, 0}, (Rot3){0, 60, 0}, COLOR_YELLOW);
-  scene_init_textures_for_mesh(sid);
-
-  /* quad */
-  int qid =
-    scene_add_mesh_ptr(quad, (Vec3){100, 100, 0}, (Rot3){0, 0, 0}, COLOR_WHITE, 1, (Rot3){0, 0, 0});
-  scene_init_textures_for_mesh(qid);
-
-  // Load texture for quad
-  quad_tex = obz_tex_load_png("assets/obzen.png");
-  scene_bind_texture_to_mesh(qid, quad_tex, 0);
-
-  OBZ_LOG_TRACE(NULL, "Scene initialized.");
-}
+// you dont have to modify main.c AT ALL. Check out obZscene.h!
 
 static void render(OBZ_Context* ctx)
 {
   obz_renderer_clear(ctx->renctx, 0, 0, 0, 0);
 
-  // idk if the FPS thing is accurate here.
-  scene_update(0.012f); // ~90fps
-
-  for (int i = 0; i < g_scene.count; i++)
+  OBZ_SceneEntry it;
+  obz_scene_iter_begin(ctx->scene, &it);
+  while (obz_scene_iter_next(ctx->scene, &it))
   {
-    OBZ_Mesh3D*       mesh_i       = g_scene.meshes[i];
-    OBZ_MeshTextures* mesh_texture = g_scene.textures[i];
-    OBZ_Color         mesh_color   = g_scene.colors[i];
+    OBZ_Mesh3D*       mesh_i       = it.mesh;
+    OBZ_Color         mesh_color   = *it.color;
+    OBZ_MeshTextures* mesh_texture = obz_scene_get_mesh_textures(ctx->scene, it.index);
 
-    obz_draw_mesh_textured_camera(ctx->renctx, g_scene.positions[i], mesh_i, mesh_texture,
-                                  mesh_color, g_scene.rotations[i].x, g_scene.rotations[i].y,
-                                  g_scene.rotations[i].z, ctx->cam);
+    obz_draw_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, mesh_color, it.rot->x,
+                                  it.rot->y, it.rot->z, ctx->cam);
   }
 
   // CROSSHAIRS
@@ -96,6 +32,13 @@ static void render(OBZ_Context* ctx)
 
 static void update(OBZ_Context* ctx, float dt)
 {
+  if (!ctx || !ctx->scene)
+    return;
+
+  /* advance scene with real dt */
+  obz_scene_update(ctx->scene, dt);
+
+  /* input handling lives here */
   (void)dt;
   OBZ_InputState* in = obz_input(ctx);
   (void)in;
@@ -146,7 +89,7 @@ static void event(OBZ_Context* ctx, [[maybe_unused]] const void* ev)
   // Escape to quit
   if (keyboard[KC_ESCAPE])
   {
-    OBZ_LOG_INFO(NULL, "Escape pressed, quitting.");
+    OBZ_LOG_INFO(NULL, "Escape pressed, quitting...");
     obz_request_quit(ctx);
     return;
   }
@@ -197,11 +140,12 @@ int main(void)
                       .resizable = OBZ_TRUE};
 
   obz_window_create(ctx);
+  ctx->scene = obz_scene_create();
 
   OBZ_LOG_INFO(NULL, "obZcene 3D Room Demo started.");
 
   // Initialize scene
-  init_scene();
+  init_scene(ctx->scene);
   obz_run(ctx);
 
   // Cleanup

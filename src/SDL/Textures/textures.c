@@ -1,4 +1,5 @@
 #include "SDL/Textures/textures.h"
+#include "obz_log.h"
 
 static unsigned int g_tex_id_counter = 1;
 
@@ -7,7 +8,7 @@ OBZ_Texture* obz_tex_load_png(const char* path)
   SDL_Surface* surf = IMG_Load(path);
   if (!surf)
   {
-    printf("Failed to load PNG surface '%s': %s\n", path, IMG_GetError());
+    OBZ_LOG_FATAL(NULL, "Failed to load PNG surface '%s': %s\n", path, IMG_GetError());
     return NULL;
   }
 
@@ -16,7 +17,7 @@ OBZ_Texture* obz_tex_load_png(const char* path)
 
   if (!rgba)
   {
-    printf("ConvertSurfaceFormat failed: %s\n", SDL_GetError());
+    OBZ_LOG_FATAL(NULL, "ConvertSurfaceFormat failed: %s\n", SDL_GetError());
     return NULL;
   }
 
