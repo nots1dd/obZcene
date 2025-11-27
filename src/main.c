@@ -3,6 +3,9 @@
 #include "SDL/Scene/scene.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
+#include "obz_log.h"
+
+DECLARE_OBZ_GLOBAL_LOGGER();
 
 static const float W      = 1000;
 static const float H      = 400;
@@ -62,12 +65,15 @@ static void init_scene(void)
   // Load texture for quad
   quad_tex = obz_tex_load_png("assets/obzen.png");
   scene_bind_texture_to_mesh(qid, quad_tex, 0);
+
+  OBZ_LOG_TRACE(NULL, "Scene initialized.");
 }
 
 static void render(OBZ_Context* ctx)
 {
-  obz_renderer_clear(ctx->renctx, 15, 15, 25, 0);
+  obz_renderer_clear(ctx->renctx, 0, 0, 0, 0);
 
+  // idk if the FPS thing is accurate here.
   scene_update(0.012f); // ~90fps
 
   for (int i = 0; i < g_scene.count; i++)
@@ -84,6 +90,8 @@ static void render(OBZ_Context* ctx)
   // CROSSHAIRS
   obz_draw_line(ctx->renctx, (Vec2){W / 2 - 10, H / 2}, (Vec2){W / 2 + 10, H / 2}, COLOR_WHITE);
   obz_draw_line(ctx->renctx, (Vec2){W / 2, H / 2 - 10}, (Vec2){W / 2, H / 2 + 10}, COLOR_WHITE);
+
+  //OBZ_LOG_TRACE(ctx->log, "Frame rendered.");
 }
 
 static void update(OBZ_Context* ctx, float dt)
@@ -130,7 +138,7 @@ void move_camera_input(OBZ_Camera* cam, const ui8* keyboard, float speed)
   cam->velocity.z = forward.z * f * speed + rightv.z * r * speed + upv.z * u * speed;
 }
 
-static void event(OBZ_Context* ctx, const void* ev)
+static void event(OBZ_Context* ctx, [[maybe_unused]] const void* ev)
 {
   const ui8*      keyboard = obz_input(ctx)->keyboard;
   OBZ_InputState* in       = obz_input(ctx);
@@ -138,6 +146,7 @@ static void event(OBZ_Context* ctx, const void* ev)
   // Escape to quit
   if (keyboard[KC_ESCAPE])
   {
+    OBZ_LOG_INFO(NULL, "Escape pressed, quitting.");
     obz_request_quit(ctx);
     return;
   }
@@ -170,21 +179,16 @@ static void event(OBZ_Context* ctx, const void* ev)
   obz_camera_update(&ctx->cam, 1); // applies cam->velocity
 }
 
-static void logger(OBZ_Context* ctx, const char* msg)
-{
-  (void)ctx;
-  printf("[LOG] %s\n", msg);
-}
-
 int main(void)
 {
   OBZ_Callbacks cb  = {update, render, event};
   OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
 
   ctx->cam = obz_camera_init((Vec3){0, 0, 0}, W, H, 75.0f);
+  ctx->timer.perf_freq = SDL_GetPerformanceFrequency();
+  ctx->timer.last_counter = SDL_GetPerformanceCounter();
   obz_camera_set_bounds(&ctx->cam, -W / 2 + margin, W / 2 - margin, -H / 2 + margin, H / 2 - margin,
                         -D / 2 + margin, D / 2 - margin);
-  obz_set_logger(ctx, logger);
 
   ctx->win_desc =
     &(OBZ_WindowDesc){.title     = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
@@ -193,6 +197,8 @@ int main(void)
                       .resizable = OBZ_TRUE};
 
   obz_window_create(ctx);
+
+  OBZ_LOG_INFO(NULL, "obZcene 3D Room Demo started.");
 
   // Initialize scene
   init_scene();

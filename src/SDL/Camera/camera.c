@@ -1,7 +1,7 @@
 #include "SDL/Camera/camera.h"
 #include <math.h>
 
-OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg)
+OBZ_Camera obz_camera_init(const Vec3 pos, float W, [[maybe_unused]] float H, float fov_deg)
 {
   float pitch = 0.0f;
   float yaw   = 0.0f;

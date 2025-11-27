@@ -2,7 +2,6 @@
 #define OBZ_SDL_KEYMAP_H
 
 /* SDL Scancode Reference (subset of common keys)
-   Matches SDL_Scancode enum values exactly.
 */
 
 /* Letters */
@@ -82,4 +81,4 @@
 #define KC_F11 68
 #define KC_F12 69
 
-#endif /* KEYMAP_SDL_H */
+#endif /* OBZ_SDL_KEYMAP_H */

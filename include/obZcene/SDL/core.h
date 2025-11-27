@@ -4,17 +4,18 @@
 #include "SDL/Camera/camera.h"
 #include "SDL/Render/render.h"
 #include "types.h"
+#include "obz_log.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stddef.h>
 #include <stdint.h>
 
+#define OBZ_EVENT_TIMER (SDL_USEREVENT + 1)
+
 #ifdef __cplusplus
 extern "C"
 {
 #endif
-
-#define OBZ_EVENT_TIMER (SDL_USEREVENT + 1)
 
   struct OBZ_Window
   {
@@ -22,6 +23,12 @@ extern "C"
     SDL_Renderer* ren;
     SDL_Texture*  tex;
   };
+
+  typedef struct
+  {
+    Uint64 last_counter;
+    double perf_freq;
+  } OBZ_SDL_HighResTimer;
 
   typedef struct
   {
@@ -121,13 +128,6 @@ extern "C"
 
   void obz_remove_timer(OBZ_Context* ctx, OBZ_TimerID id);
 
-  /* ---------- Logging ---------- */
-  typedef void (*OBZ_LogFn)(OBZ_Context* ctx, const char* msg);
-
-  void obz_set_logger(OBZ_Context* ctx, OBZ_LogFn fn);
-
-  void obz_log(OBZ_Context* ctx, const char* fmt, ...);
-
   /* ---------- Internal structs ---------- */
   struct OBZ_Context
   {
@@ -137,11 +137,12 @@ extern "C"
 
     OBZ_WindowDesc*      win_desc;
     OBZ_RendererContext* renctx;
+    OBZ_SDL_HighResTimer timer;
 
     OBZ_InputState input;
     ui32           last_time;
     OBZ_Bool       quit;
-    OBZ_LogFn      logger;
+    OBZ_Logger     *log;
 
     SDL_TimerID timers_id[32];
     OBZ_TimerFn timers_fn[32];

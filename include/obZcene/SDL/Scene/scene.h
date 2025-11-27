@@ -5,6 +5,7 @@
 #include "SDL/Mesh/mesh.h"
 #include "SDL/Textures/textures.h"
 #include "macros.h"
+#include "obz_log.h"
 #include <stdlib.h>
 
 typedef Vec3 Rot3;
@@ -15,7 +16,7 @@ typedef struct
   Vec3*              positions;
   Rot3*              rotations;
   OBZ_Color*         colors;
-  OBZ_MeshTextures** textures;
+  OBZ_MeshTextures** textures; // dont copy textures by value
   ui8*               owned; /* 1 => this scene is owner and must free the mesh */
   int                count;
   int                capacity;
@@ -75,18 +76,18 @@ inline static void scene_free_textures(void)
 
 inline static void scene_update(float dt)
 {
-  for (int i = 0; i < g_scene.count; i++)
-  {
-    Vec3 s = g_scene.rotSpeeds[i];
-    if (s.x != 0 || s.y != 0 || s.z != 0)
+    for (int i = 0; i < g_scene.count; i++)
     {
-      g_scene.rotations[i].x += s.x * dt;
-      g_scene.rotations[i].y += s.y * dt;
-      g_scene.rotations[i].z += s.z * dt;
+        Vec3 s = g_scene.rotSpeeds[i];
+        if (s.x || s.y || s.z)
+        {
+            g_scene.rotations[i].x += s.x * dt;
+            g_scene.rotations[i].y += s.y * dt;
+            g_scene.rotations[i].z += s.z * dt;
+        }
     }
-  }
 
-  g_scene.time += dt;
+    g_scene.time += dt;
 }
 
 inline static Vec3 deg_to_rad3(Rot3 d)
@@ -136,7 +137,7 @@ inline static int scene_add_mesh_ptr(OBZ_Mesh3D* m, Vec3 pos, Rot3 rot, OBZ_Colo
     g_scene.textures[id] = obz_tex_create_for_mesh(m); // allocate on heap
     if (!g_scene.textures[id])
     {
-      printf("[WARN] Failed to create textures for mesh %d\n", id);
+      OBZ_LOG_WARN(NULL, "Failed to create textures for mesh %d\n", id);
       g_scene.textures[id] = NULL;
     }
   }

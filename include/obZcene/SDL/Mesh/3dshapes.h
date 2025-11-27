@@ -1,27 +1,9 @@
 #ifndef OBZ_SDL_MESH_3DSHAPES_H
 #define OBZ_SDL_MESH_3DSHAPES_H
 
-#include "Utils/vec.h"
-#include "macros.h"
 #include <math.h>
-#include <stdlib.h>
+#include "mesh.h"
 #include <string.h>
-
-// 3d stuff
-typedef struct
-{
-  Vec3* verts;
-  int   nverts;
-  int (*faces)[4]; // array of quads
-  int   nfaces;
-  Vec2* uvs;
-} OBZ_Mesh3D;
-
-/* ------------ FACE ALLOCATOR ------------ */
-OBZ_FORCE_INLINE static int (*alloc_faces(int nfaces))[4]
-{
-  return malloc(sizeof(int[4]) * nfaces);
-}
 
 inline static OBZ_Mesh3D make_quad(float w, float h)
 {

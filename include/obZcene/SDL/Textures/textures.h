@@ -1,7 +1,7 @@
 #ifndef OBZ_TEXTURE_H
 #define OBZ_TEXTURE_H
 
-#include "SDL/Mesh/3dshapes.h"
+#include "SDL/Mesh/mesh.h"
 #include "types.h"
 #include <SDL2/SDL_image.h>
 

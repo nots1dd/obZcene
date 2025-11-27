@@ -1,30 +1,11 @@
 #include "SDL/core.h"
+#include "SDL/Scene/scene.h"
 #include <stdarg.h>
 #include <stdio.h>
 
-void obz_set_logger(OBZ_Context* ctx, OBZ_LogFn fn)
-{
-  if (ctx)
-    ctx->logger = fn;
-}
-
-void obz_log(OBZ_Context* ctx, const char* fmt, ...)
-{
-  if (!ctx || !fmt || !ctx->logger)
-    return;
-
-  char    buf[512];
-  va_list ap;
-  va_start(ap, fmt);
-  vsnprintf(buf, sizeof(buf), fmt, ap);
-  va_end(ap);
-
-  ctx->logger(ctx, buf);
-}
-
 static ui32 timer_thread_trampoline(ui32 interval, void* userdata)
 {
-  OBZ_Context* ctx = userdata;
+  [[maybe_unused]] OBZ_Context* ctx = userdata;
 
   SDL_Event ev;
   SDL_memset(&ev, 0, sizeof(ev));
@@ -89,33 +70,16 @@ static void A_free(const OBZ_Allocator* a, void* p)
 OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
                         const OBZ_Allocator* alloc)
 {
-  if (!cb)
+  if (!cb) {
+    fprintf(stderr, "[ERROR] Callback struct is NULL.\n");
     return NULL;
-
-  /* --- SDL init --- */
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0)
-    return NULL;
-
-  /* --- Global SDL hints --- */
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* linear filtering */
-  SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
-  SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-
-  // Initialize PNG loader
-  int flags = IMG_INIT_PNG | IMG_INIT_JPG;
-  if ((IMG_Init(flags) & flags) != flags)
-  {
-    printf("IMG_Init failed: %s\n", IMG_GetError());
-    return 0;
   }
 
-#ifdef _WIN32
-  SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
-#endif
-
   OBZ_Context* ctx = alloc ? alloc->alloc(sizeof(*ctx)) : malloc(sizeof(*ctx));
-  if (!ctx)
+  if (!ctx) {
+    OBZ_LOG_ERROR(NULL, "Failed to allocate OBZ_Context.");
     return NULL;
+  }
 
   ctx->cb                  = *cb;
   ctx->alloc               = alloc ? *alloc : (OBZ_Allocator){0};
@@ -124,9 +88,52 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   ctx->last_time           = SDL_GetTicks();
   ctx->input.keyboard      = SDL_GetKeyboardState(NULL);
   ctx->renctx              = malloc(sizeof(OBZ_RendererContext));
+  if (!ctx->renctx) {
+    OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
+    free(ctx);
+    return NULL;
+  }
   ctx->renctx->width       = dims.width;
   ctx->renctx->height      = dims.height;
   ctx->renctx->framebuffer = malloc(ctx->renctx->width * ctx->renctx->height * 4); // RGBA
+  if (!ctx->renctx->framebuffer) {
+    OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
+    free(ctx->renctx);
+    free(ctx);
+    return NULL;
+  }
+
+  // Initialize logger AFTER memory allocation
+  ctx->log = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
+  OBZ_LOG_INFO(ctx->log, "obZcene context created successfully.");
+  OBZ_set_global_logger(ctx->log);
+
+  OBZ_LOG_DEBUG(NULL, "Initializing SDL...");
+
+  /* --- SDL init --- */
+  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0) {
+    OBZ_LOG_ERROR(NULL, "SDL_Init failed: %s", SDL_GetError());
+    return NULL;
+  }
+  OBZ_LOG_DEBUG(NULL, "SDL initialized successfully.");
+
+  /* --- Global SDL hints --- */
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* linear filtering */
+  SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
+  SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+  OBZ_LOG_TRACE(NULL, "SDL hints set.");
+
+  // Initialize PNG/JPG loader
+  int flags = IMG_INIT_PNG | IMG_INIT_JPG;
+  if ((IMG_Init(flags) & flags) != flags) {
+    OBZ_LOG_ERROR(NULL, "IMG_Init failed: %s", IMG_GetError());
+    return 0;
+  }
+  OBZ_LOG_DEBUG(NULL, "SDL_image initialized with PNG & JPG support.");
+
+#ifdef _WIN32
+  SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+#endif
 
   return ctx;
 }
@@ -134,16 +141,32 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
 /* ----- Destroy ----- */
 void obz_destroy(OBZ_Context* ctx)
 {
-  if (!ctx)
-    return;
-  if (ctx->main_win)
-  {
+  if (!ctx) return;
+
+  OBZ_LOG_INFO(NULL, "Destroying obZcene scene and context...");
+  scene_free_all();
+
+  if (ctx->main_win) {
     SDL_DestroyRenderer(ctx->main_win->ren);
     SDL_DestroyWindow(ctx->main_win->win);
     A_free(&ctx->alloc, ctx->main_win);
+    OBZ_LOG_DEBUG(NULL, "Main window destroyed.");
   }
+
   IMG_Quit();
   SDL_Quit();
+  OBZ_LOG_DEBUG(ctx->log, "SDL and SDL_image cleaned up.");
+
+  if (ctx->renctx) {
+    if (ctx->renctx->framebuffer)
+      free(ctx->renctx->framebuffer);
+    free(ctx->renctx);
+    OBZ_LOG_DEBUG(ctx->log, "Renderer context freed.");
+  }
+
+  OBZ_LOG_INFO(NULL, "obZcene context destroyed.");
+  OBZ_logger_destroy(ctx->log);
+
   A_free(&ctx->alloc, ctx);
 }
 
@@ -158,21 +181,23 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
   SDL_Window* w =
     SDL_CreateWindow(ctx->win_desc->title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                      ctx->win_desc->width, ctx->win_desc->height, flags);
-  if (!w)
+  if (!w) {
+    OBZ_LOG_ERROR(NULL, "SDL_CreateWindow failed: %s", SDL_GetError());
     return OBZ_ERR_SDL;
+  }
 
   SDL_Renderer* r = SDL_CreateRenderer(w, -1, SDL_RENDERER_ACCELERATED);
-  if (!r)
-  {
+  if (!r) {
     SDL_DestroyWindow(w);
+    OBZ_LOG_ERROR(NULL, "SDL_CreateRenderer failed: %s", SDL_GetError());
     return OBZ_ERR_SDL;
   }
 
   OBZ_Window* win = A_malloc(&ctx->alloc, sizeof(*win));
-  if (!win)
-  {
+  if (!win) {
     SDL_DestroyRenderer(r);
     SDL_DestroyWindow(w);
+    OBZ_LOG_ERROR(NULL, "Failed to allocate OBZ_Window.");
     return OBZ_ERR_ALLOC;
   }
 
@@ -188,14 +213,19 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
     SDL_CreateTexture(ctx->main_win->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
                       ctx->renctx->width, ctx->renctx->height);
 
+  OBZ_LOG_INFO(NULL, "Window created successfully: %dx%d",
+               ctx->win_desc->width, ctx->win_desc->height);
+
   return OBZ_OK;
 }
 
 /* ----- Destroy window ----- */
 void obz_window_destroy(OBZ_Window* win)
 {
-  if (!win)
-    return;
+  if (!win) return;
+
+  OBZ_LOG_DEBUG(NULL, "Destroying window...");
+
   SDL_DestroyRenderer(win->ren);
   SDL_DestroyWindow(win->win);
   /* caller frees window in destroy(ctx) */
@@ -263,9 +293,9 @@ OBZ_Result obz_run(OBZ_Context* ctx)
     }
 
     /* Delta time */
-    ui32  now      = SDL_GetTicks();
-    float dt       = (now - ctx->last_time) / 1000.0f;
-    ctx->last_time = now;
+    Uint64 now = SDL_GetPerformanceCounter();
+    float dt = (float)((now - ctx->timer.last_counter) / ctx->timer.perf_freq);
+    ctx->timer.last_counter = now;
 
     if (ctx->cb.update)
       ctx->cb.update(ctx, dt);

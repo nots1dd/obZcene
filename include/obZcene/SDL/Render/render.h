@@ -3,7 +3,6 @@
 
 #include "SDL/Camera/camera.h"
 #include "SDL/Colors/colors.h"
-#include "SDL/Mesh/3dshapes.h"
 #include "SDL/Textures/textures.h"
 #include "Utils/vec.h"
 
@@ -12,9 +11,6 @@ extern "C"
 {
 #endif
 
-  /* ==========================================================
-   Core Renderer Context
-   ========================================================== */
   typedef struct OBZ_RendererContext
   {
     pixel*      framebuffer; // RGBA framebuffer

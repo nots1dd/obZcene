@@ -1,196 +1,161 @@
-###############################################################################
-# Build type (debug or release)
-###############################################################################
-BUILD ?= release
-
-ifeq ($(BUILD),debug)
-    CFLAGS += -O0 -g -DDEBUG
-    BUILD_DIR := build/debug
-else
-    CFLAGS += -O2 -DNDEBUG
-    BUILD_DIR := build/release
-endif
-
-BIN_DIR  := $(BUILD_DIR)
-OBJ_DIR  := build/obj
-DEP_DIR  := build/deps
+# Makefile for obZcene
 
 ###############################################################################
-# Parallel build detection
+# Project configuration (user overridable)
 ###############################################################################
-JOBS := $(shell \
-    nproc 2>/dev/null || \
-    sysctl -n hw.ncpu 2>/dev/null || \
-    echo 4 \
-)
-
-###############################################################################
-# System Detection
-###############################################################################
-UNAME_S := $(shell uname -s)
-UNAME_M := $(shell uname -m)
-UNAME_R := $(shell uname -r)
-UNAME_V := $(shell uname -v)
-UNAME_P := $(shell uname -p 2>/dev/null)
-
-KERNEL_BITS := $(shell getconf LONG_BIT)
-HOSTNAME    := $(shell hostname)
-
-ENDIAN_CHECK := $(shell printf 'I' | od -to2 | head -1 | awk '{print $$2}')
-ifeq ($(ENDIAN_CHECK),000111)
-    ENDIAN := little
-else
-    ENDIAN := big
-endif
+TARGET        ?= main
+BUILD         ?= release
+PREFIX        ?= /usr/local
+VERBOSE       ?= 0
+JOBS          ?= $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
 
 ###############################################################################
-# Platform-specific flags
+# Derived directories
 ###############################################################################
-PLATFORM_FLAGS :=
-
-ifeq ($(UNAME_S),Linux)
-    PLATFORM_FLAGS += -D_GNU_SOURCE
-endif
-
-ifeq ($(UNAME_S),Darwin)
-    PLATFORM_FLAGS += -D_DARWIN_C_SOURCE -mmacosx-version-min=10.14
-endif
-
-ifeq ($(UNAME_S),FreeBSD)
-    PLATFORM_FLAGS += -D_BSD_SOURCE
-endif
-
-ifneq (,$(findstring MINGW,$(UNAME_S)))
-    PLATFORM_FLAGS += -D_WIN32
-endif
+BUILD_DIR     := build/$(BUILD)
+OBJ_DIR       := build/obj/$(BUILD)
+DEP_DIR       := build/deps/$(BUILD)
+BIN_DIR       := $(BUILD_DIR)
 
 ###############################################################################
-# Compiler detection
+# Detect host
 ###############################################################################
-CC := $(shell command -v gcc 2>/dev/null || command -v clang 2>/dev/null || echo cc)
-C_VERSION := $(shell $(CC) --version | head -n 1)
-C_TARGET  := $(shell $(CC) -dumpmachine 2>/dev/null)
+UNAME_S := $(shell uname -s 2>/dev/null || echo Unknown)
+UNAME_R := $(shell uname -r 2>/dev/null || echo Unknown)
+UNAME_M := $(shell uname -m 2>/dev/null || echo Unknown)
+HOSTNAME := $(or $(shell hostname 2>/dev/null), $(shell uname -n 2>/dev/null), unknown)
+ENDIAN := $(shell printf 'I' | od -An -to2 | awk '{print ($$1=="000111")?"little":"big"}')
 
 ###############################################################################
-# SDL2 detection
+# Compiler
+###############################################################################
+CC        := $(shell command -v gcc || command -v clang || echo cc)
+C_VERSION := $(shell $(CC) --version | head -n1)
+C_TARGET  := $(shell $(CC) -dumpmachine 2>/dev/null || echo unknown)
+
+###############################################################################
+# SDL2
 ###############################################################################
 SDL_CFLAGS  := $(shell sdl2-config --cflags 2>/dev/null)
 SDL_LDFLAGS := $(shell sdl2-config --libs 2>/dev/null)
-
 ifeq ($(SDL_CFLAGS),)
     SDL_CFLAGS := -I/usr/include/SDL2
     SDL_LDFLAGS := -lSDL2
 endif
 
 ###############################################################################
-# Project settings
+# Flags
 ###############################################################################
-TARGET := main
+INCLUDES := -I include/obZcene -I external
+COMMON_CFLAGS := -Wall -Wextra -Werror -Wno-unused-parameter $(INCLUDES) -lm $(SDL_CFLAGS) -march=native
+LDFLAGS := $(SDL_LDFLAGS) -lSDL2_image
 
-SRC := src/main.c src/SDL/core.c src/SDL/Render/render.c src/SDL/Textures/textures.c src/SDL/Camera/camera.c
+ifeq ($(BUILD),debug)
+    COMMON_CFLAGS += -O0 -g -DDEBUG
+else
+    COMMON_CFLAGS += -O2 -DNDEBUG
+endif
 
-OBJ := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
+###############################################################################
+# Source files
+###############################################################################
+SRC := \
+    src/main.c \
+    src/SDL/core.c \
+    src/SDL/Render/render.c \
+    src/SDL/Textures/textures.c \
+    src/SDL/Camera/camera.c \
+    src/Utils/vec.c
+
+OBJ  := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))
 
-INCLUDES := -I include/obZcene/ -I external/
-LINKS := -lm -lSDL2_image
-CFLAGS += -Wall -Wextra -mfma -mavx2 -march=native $(INCLUDES) $(LINKS) $(SDL_CFLAGS) $(PLATFORM_FLAGS)
-LDFLAGS := $(SDL_LDFLAGS)
-
-STRIP := strip
-
 ###############################################################################
-# Build messages
+# Colored output helpers
 ###############################################################################
-QUIET_CC   = @printf "CC      %-30s\n" "$@" && $(CC)
-QUIET_LD   = @printf "LD      %-30s\n" "$(BIN_DIR)/$(TARGET)" && $(CC)
-QUIET_STRIP= @printf "STRIP   %-30s\n" "$(BIN_DIR)/$(TARGET)" && $(STRIP)
+COLOR_CC  := \033[1;32m
+COLOR_LD  := \033[1;36m
+COLOR_RST := \033[0m
 
-###############################################################################
-# Info dump
-###############################################################################
-define SYSTEM_DUMP
+# Always print the simple message, never the full command
+ECHO_CC_CMD = @printf "$(COLOR_CC)CC$(COLOR_RST)  %-30s\n" "$@"
+ECHO_LD_CMD = @printf "$(COLOR_LD)LD$(COLOR_RST)  %-30s\n" "$@"
 
-===================== SYSTEM DETECTION =====================
-Host Name        : $(HOSTNAME)
-OS Name          : $(UNAME_S)
-OS Release       : $(UNAME_R)
-OS Version       : $(UNAME_V)
-Architecture     : $(UNAME_M)
-Processor        : $(UNAME_P)
-Word Size        : $(KERNEL_BITS)
-Endianness       : $(ENDIAN)
-============================================================
-
-===================== COMPILER DETECTION ===================
-Compiler         : $(CC)
-Compiler Version : $(C_VERSION)
-Target Triple    : $(C_TARGET)
-============================================================
-
-===================== SDL2 DETECTION ========================
-SDL CFLAGS       : $(SDL_CFLAGS)
-SDL LDFLAGS      : $(SDL_LDFLAGS)
-============================================================
-
-===================== PARALLEL BUILD ========================
-Jobs Detected    : $(JOBS)
-============================================================
-
-endef
-export SYSTEM_DUMP
+ifeq ($(VERBOSE),1)
+    COMPILE = $(CC) $(COMMON_CFLAGS) -MMD -MP -MF $(DEP_DIR)/$*.d -c $< -o $@
+    LINK    = $(CC) $(COMMON_CFLAGS) $(OBJ) -o $@ $(LDFLAGS)
+else
+    COMPILE = @$(CC) $(COMMON_CFLAGS) -MMD -MP -MF $(DEP_DIR)/$*.d -c $< -o $@
+    LINK    = @$(CC) $(COMMON_CFLAGS) $(OBJ) -o $@ $(LDFLAGS)
+endif
 
 ###############################################################################
 # Rules
 ###############################################################################
 all: info $(BIN_DIR)/$(TARGET)
 
+# Info display with single-line separator
 info:
-	@echo "$$SYSTEM_DUMP"
+	@SEP=$(shell locale 2>/dev/null | grep -iqE "UTF-8|utf8" && echo "-" || echo "-"); \
+	TL=$(shell [ "$$SEP" = "-" ] && echo "+" || echo "┌"); \
+	TR=$(shell [ "$$SEP" = "-" ] && echo "+" || echo "┐"); \
+	BL=$(shell [ "$$SEP" = "-" ] && echo "+" || echo "└"); \
+	BR=$(shell [ "$$SEP" = "-" ] && echo "+" || echo "┘"); \
+	VB=$(shell [ "$$SEP" = "-" ] && echo "|" || echo "│"); \
+	WIDTH=65; \
+	printf "%s%s%s\n" "$$TL" "$$(printf '%*s' $$WIDTH '' | tr ' ' $$SEP)" "$$TR"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " OBZCENE BUILD INFO " "$$VB"; \
+	printf "%s%s%s\n" "$$VB" "$$(printf '%*s' $$WIDTH '' | tr ' ' ' ')" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Host: $(HOSTNAME)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " OS: $(UNAME_S) $(UNAME_R)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Arch: $(UNAME_M)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Endianness: $(ENDIAN)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Compiler: $(CC)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Version: $(C_VERSION)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Target triple: $(C_TARGET)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " SDL CFLAGS: $(SDL_CFLAGS)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " SDL LDFLAGS: $(SDL_LDFLAGS)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Build type: $(BUILD)" "$$VB"; \
+	printf "%s%-*s%s\n" "$$VB" $$WIDTH " Jobs: $(JOBS)" "$$VB"; \
+	printf "%s%s%s\n\n" "$$BL" "$$(printf '%*s' $$WIDTH '' | tr ' ' $$SEP)" "$$BR"
 
-# Ensure dirs exist
+# Ensure directories exist
 $(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)/src/SDL
-	mkdir -p $(OBJ_DIR)/src
+	@mkdir -p $(OBJ_DIR)
 
 $(DEP_DIR):
-	mkdir -p $(DEP_DIR)/src/SDL
-	mkdir -p $(DEP_DIR)/src
+	@mkdir -p $(DEP_DIR)
 
 $(BIN_DIR):
-	mkdir -p $(BIN_DIR)
+	@mkdir -p $(BIN_DIR)
 
-# Link
-$(BIN_DIR)/$(TARGET): $(OBJ_DIR) $(DEP_DIR) $(BIN_DIR) $(OBJ)
-	$(QUIET_LD) $(CFLAGS) -o $@ $(OBJ) $(LDFLAGS)
-ifeq ($(BUILD),release)
-	$(QUIET_STRIP) $@
-endif
+# Build objects
+$(OBJ_DIR)/%.o: %.c | $(OBJ_DIR) $(DEP_DIR)
+	@mkdir -p $(dir $@)
+	@mkdir -p $(dir $(DEP_DIR)/$*.d)
+	$(ECHO_CC_CMD)
+	$(COMPILE)
 
-# Compile + dependency file generation
-$(OBJ_DIR)/%.o: %.c
-	@mkdir -p $(dir $@) $(dir $(patsubst $(OBJ_DIR)/%.o,$(DEP_DIR)/%.d,$@))
-	$(QUIET_CC) $(CFLAGS) -MMD -MP -MF $(patsubst $(OBJ_DIR)/%.o,$(DEP_DIR)/%.d,$@) -c $< -o $@
+# Build target
+$(BIN_DIR)/$(TARGET): $(OBJ) | $(BIN_DIR)
+	$(ECHO_LD_CMD)
+	$(LINK)
 
+# Clean
 clean:
 	rm -rf build
 
+# Rebuild
 rebuild: clean all
 
-# include .d files
+# Install/uninstall
+install: $(BIN_DIR)/$(TARGET)
+	install -Dm755 $(BIN_DIR)/$(TARGET) $(PREFIX)/bin/$(TARGET)
+
+uninstall:
+	rm -f $(PREFIX)/bin/$(TARGET)
+
+# Include dependency files
 -include $(DEPS)
 
-###############################################################################
-# Code formatting
-###############################################################################
-FORMAT_DIRS := src include
-FORMAT_FILES := $(shell find $(FORMAT_DIRS) -type f \( -name "*.c" -o -name "*.h" \))
-
-format:
-	@echo "Formatting source files..."
-	@for f in $(FORMAT_FILES); do \
-		printf "FMT     %s\n" "$$f"; \
-		clang-format -i "$$f"; \
-	done
-
-.PHONY: all clean info rebuild
+.PHONY: all clean rebuild info install uninstall
