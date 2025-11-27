@@ -3,8 +3,8 @@
 
 #include "SDL/Camera/camera.h"
 #include "SDL/Render/render.h"
-#include "types.h"
 #include "obz_log.h"
+#include "types.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stddef.h>
@@ -142,7 +142,7 @@ extern "C"
     OBZ_InputState input;
     ui32           last_time;
     OBZ_Bool       quit;
-    OBZ_Logger     *log;
+    OBZ_Logger*    log;
 
     SDL_TimerID timers_id[32];
     OBZ_TimerFn timers_fn[32];

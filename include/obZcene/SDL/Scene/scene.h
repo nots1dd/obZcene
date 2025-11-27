@@ -17,7 +17,7 @@ typedef struct
   Rot3*              rotations;
   OBZ_Color*         colors;
   OBZ_MeshTextures** textures; // dont copy textures by value
-  ui8*               owned; /* 1 => this scene is owner and must free the mesh */
+  ui8*               owned;    /* 1 => this scene is owner and must free the mesh */
   int                count;
   int                capacity;
   Rot3*              rotSpeeds;
@@ -76,18 +76,18 @@ inline static void scene_free_textures(void)
 
 inline static void scene_update(float dt)
 {
-    for (int i = 0; i < g_scene.count; i++)
+  for (int i = 0; i < g_scene.count; i++)
+  {
+    Vec3 s = g_scene.rotSpeeds[i];
+    if (s.x || s.y || s.z)
     {
-        Vec3 s = g_scene.rotSpeeds[i];
-        if (s.x || s.y || s.z)
-        {
-            g_scene.rotations[i].x += s.x * dt;
-            g_scene.rotations[i].y += s.y * dt;
-            g_scene.rotations[i].z += s.z * dt;
-        }
+      g_scene.rotations[i].x += s.x * dt;
+      g_scene.rotations[i].y += s.y * dt;
+      g_scene.rotations[i].z += s.z * dt;
     }
+  }
 
-    g_scene.time += dt;
+  g_scene.time += dt;
 }
 
 inline static Vec3 deg_to_rad3(Rot3 d)

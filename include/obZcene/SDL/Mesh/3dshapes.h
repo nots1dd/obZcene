@@ -1,8 +1,8 @@
 #ifndef OBZ_SDL_MESH_3DSHAPES_H
 #define OBZ_SDL_MESH_3DSHAPES_H
 
-#include <math.h>
 #include "mesh.h"
+#include <math.h>
 #include <string.h>
 
 inline static OBZ_Mesh3D make_quad(float w, float h)

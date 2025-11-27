@@ -184,8 +184,8 @@ int main(void)
   OBZ_Callbacks cb  = {update, render, event};
   OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
 
-  ctx->cam = obz_camera_init((Vec3){0, 0, 0}, W, H, 75.0f);
-  ctx->timer.perf_freq = SDL_GetPerformanceFrequency();
+  ctx->cam                = obz_camera_init((Vec3){0, 0, 0}, W, H, 75.0f);
+  ctx->timer.perf_freq    = SDL_GetPerformanceFrequency();
   ctx->timer.last_counter = SDL_GetPerformanceCounter();
   obz_camera_set_bounds(&ctx->cam, -W / 2 + margin, W / 2 - margin, -H / 2 + margin, H / 2 - margin,
                         -D / 2 + margin, D / 2 - margin);

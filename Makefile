@@ -75,6 +75,8 @@ DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))
 ###############################################################################
 COLOR_CC  := \033[1;32m
 COLOR_LD  := \033[1;36m
+COLOR_FMT  := \033[1;35m  # Magenta for format
+COLOR_TIDY := \033[1;34m  # Blue for tidy
 COLOR_RST := \033[0m
 
 # Always print the simple message, never the full command
@@ -87,6 +89,38 @@ ifeq ($(VERBOSE),1)
 else
     COMPILE = @$(CC) $(COMMON_CFLAGS) -MMD -MP -MF $(DEP_DIR)/$*.d -c $< -o $@
     LINK    = @$(CC) $(COMMON_CFLAGS) $(OBJ) -o $@ $(LDFLAGS)
+endif
+
+###############################################################################
+# Code formatting and static analysis
+###############################################################################
+CLANG_FORMAT := $(shell command -v clang-format 2>/dev/null)
+CLANG_TIDY  := $(shell command -v clang-tidy 2>/dev/null)
+
+SRC_FILES := $(shell find src include -type f \( -name "*.c" -o -name "*.h" \))
+
+# Format source files recursively
+format:
+ifeq ($(CLANG_FORMAT),)
+	@echo "clang-format not found, skipping format."
+else
+	@echo "Running clang-format..."
+	@for f in $(SRC_FILES); do \
+		printf "$(COLOR_FMT)FMT$(COLOR_RST)  %s\n" "$$f"; \
+		$(CLANG_FORMAT) -i "$$f"; \
+	done
+endif
+
+# Run clang-tidy recursively
+tidy:
+ifeq ($(CLANG_TIDY),)
+	@echo "clang-tidy not found, skipping static analysis."
+else
+	@echo "Running clang-tidy..."
+	@for f in $(SRC_FILES); do \
+		printf "$(COLOR_TIDY)TIDY$(COLOR_RST) %s\n" "$$f"; \
+		$(CLANG_TIDY) "$$f" --; \
+	done
 endif
 
 ###############################################################################
