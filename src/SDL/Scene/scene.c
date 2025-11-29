@@ -8,7 +8,6 @@ struct OBZ_Scene
   Vec3*              positions;
   Rot3*              rotations;
   Rot3*              rotSpeeds;
-  OBZ_Color*         colors;
   uint8_t*           owned;
   OBZ_MeshTextures** textures;
 
@@ -31,7 +30,6 @@ static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
   s->positions = realloc(s->positions, sizeof(Vec3) * cap);
   s->rotations = realloc(s->rotations, sizeof(Rot3) * cap);
   s->rotSpeeds = realloc(s->rotSpeeds, sizeof(Rot3) * cap);
-  s->colors    = realloc(s->colors, sizeof(OBZ_Color) * cap);
   s->owned     = realloc(s->owned, sizeof(uint8_t) * cap);
   s->textures  = realloc(s->textures, sizeof(OBZ_MeshTextures*) * cap);
 
@@ -75,7 +73,6 @@ void obz_scene_destroy(OBZ_Scene* s)
   free(s->positions);
   free(s->rotations);
   free(s->rotSpeeds);
-  free(s->colors);
   free(s->owned);
   free(s->textures);
 
@@ -83,8 +80,7 @@ void obz_scene_destroy(OBZ_Scene* s)
 }
 
 /* ---------------- Add Mesh --------------- */
-int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, OBZ_Color color,
-                       int own_mesh, Rot3 speed)
+int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int own_mesh, Rot3 speed)
 {
   if (!mesh)
     return -1;
@@ -95,7 +91,6 @@ int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, OBZ_C
   s->meshes[id]    = mesh;
   s->positions[id] = pos;
   s->rotations[id] = rot;
-  s->colors[id]    = color;
   s->owned[id]     = own_mesh ? 1 : 0;
   s->rotSpeeds[id] = speed;
   s->textures[id]  = NULL;
@@ -165,7 +160,6 @@ int obz_scene_iter_next(OBZ_Scene* s, OBZ_SceneEntry* e)
   e->pos      = &s->positions[i];
   e->rot      = &s->rotations[i];
   e->rotSpeed = &s->rotSpeeds[i];
-  e->color    = &s->colors[i];
 
   return 1;
 }

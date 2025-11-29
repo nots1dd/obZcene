@@ -26,8 +26,8 @@ OBZ_API OBZ_Scene* obz_scene_create(void);
 OBZ_API void       obz_scene_destroy(OBZ_Scene* s);
 
 /* ---- Add mesh ---- */
-OBZ_API int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, OBZ_Color color,
-                               int own_mesh, Rot3 rotSpeed);
+OBZ_API int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int own_mesh,
+                               Rot3 rotSpeed);
 
 /* ---- Update ---- */
 OBZ_API void obz_scene_update(OBZ_Scene* s, float dt);

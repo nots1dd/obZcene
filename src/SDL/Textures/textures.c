@@ -58,12 +58,22 @@ void obz_tex_free(OBZ_Texture* tex)
 
 OBZ_MeshTextures* obz_tex_create_for_mesh(OBZ_Mesh3D* mesh)
 {
-  OBZ_MeshTextures* mt = malloc(sizeof(OBZ_MeshTextures));
+  if (!mesh)
+    return NULL;
+
+  OBZ_MeshTextures* mt = calloc(1, sizeof(OBZ_MeshTextures));
   if (!mt)
     return NULL;
 
   mt->mesh = mesh;
-  memset(mt->textures, 0, sizeof(mt->textures));
+
+  // Initialize texture slots and per-face mapping
+  for (int i = 0; i < OBZ_MAX_MESH_TEXTURES; i++)
+    mt->textures[i] = NULL;
+
+  for (int i = 0; i < OBZ_MAX_MESH_FACES; i++)
+    mt->face_tex_index[i] = -1; // -1 = no texture
+
   return mt;
 }
 
@@ -83,4 +93,29 @@ void obz_tex_unbind_from_mesh(OBZ_MeshTextures* mt, int slot)
   if (slot < 0 || slot >= OBZ_MAX_MESH_TEXTURES)
     return;
   mt->textures[slot] = NULL;
+}
+
+void obz_tex_set_face_texture(OBZ_MeshTextures* mt, int face_index, int tex_slot)
+{
+  if (!mt)
+    return;
+  if (face_index < 0 || face_index >= OBZ_MAX_MESH_FACES)
+    return;
+  if (tex_slot < 0 || tex_slot >= OBZ_MAX_MESH_TEXTURES)
+    return;
+  mt->face_tex_index[face_index] = tex_slot;
+}
+
+OBZ_Texture* obz_tex_get_face_texture(OBZ_MeshTextures* mt, int face_index)
+{
+  if (!mt)
+    return NULL;
+  if (face_index < 0 || face_index >= OBZ_MAX_MESH_FACES)
+    return NULL;
+
+  int slot = mt->face_tex_index[face_index];
+  if (slot < 0 || slot >= OBZ_MAX_MESH_TEXTURES)
+    return NULL;
+
+  return mt->textures[slot];
 }

@@ -80,8 +80,8 @@ void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw
 
   // build right and up from yaw/pitch/roll or from direction
   const Vec3 world_up = {0, 1, 0};
-  const Vec3 right = obz_vec3_norm(obz_vec3_cross(world_up, fwd));
-  const Vec3 up    = obz_vec3_cross(fwd, right);
+  const Vec3 right    = obz_vec3_norm(obz_vec3_cross(world_up, fwd));
+  const Vec3 up       = obz_vec3_cross(fwd, right);
 
   // vector from camera to point
   const Vec3 d = obz_vec3_sub(world_pos, cam.position);

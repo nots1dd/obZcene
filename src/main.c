@@ -1,4 +1,3 @@
-#include "SDL/Render/render.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
 #include "obZcene.h"
@@ -9,23 +8,21 @@ DECLARE_OBZ_GLOBAL_LOGGER();
 
 static void render(OBZ_Context* ctx)
 {
-  obz_renderer_clear(ctx->renctx, 0, 0, 0, 0);
+  obz_render_clear(ctx->renctx, 0);
 
   OBZ_SceneEntry it;
   obz_scene_iter_begin(ctx->scene, &it);
   while (obz_scene_iter_next(ctx->scene, &it))
   {
     OBZ_Mesh3D*       mesh_i       = it.mesh;
-    OBZ_Color         mesh_color   = *it.color;
     OBZ_MeshTextures* mesh_texture = obz_scene_get_mesh_textures(ctx->scene, it.index);
 
-    obz_draw_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, mesh_color, it.rot->x,
-                                  it.rot->y, it.rot->z, ctx->cam);
+    obz_render_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, it.rot->x, it.rot->y,
+                                  it.rot->z, ctx->cam);
   }
 
-  // CROSSHAIRS
-  obz_draw_line(ctx->renctx, (Vec2){W / 2 - 10, H / 2}, (Vec2){W / 2 + 10, H / 2}, COLOR_WHITE);
-  obz_draw_line(ctx->renctx, (Vec2){W / 2, H / 2 - 10}, (Vec2){W / 2, H / 2 + 10}, COLOR_WHITE);
+  // CROSSHAIRS (CUSTOM!)
+  draw_crosshair(ctx->renctx, W / 2, H / 2, 20, 2, 0xFFFFFF);
 
   //OBZ_LOG_TRACE(ctx->log, "Frame rendered.");
 }
@@ -35,7 +32,6 @@ static void update(OBZ_Context* ctx, float dt)
   if (!ctx || !ctx->scene)
     return;
 
-  /* advance scene with real dt */
   obz_scene_update(ctx->scene, dt);
 
   /* input handling lives here */
@@ -134,10 +130,10 @@ int main(int argc, char** argv)
                         -D / 2 + margin, D / 2 - margin);
 
   ctx->win_desc =
-    &(OBZ_WindowDesc){.title     = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
-                      .dim.width     = W,
-                      .dim.height    = H,
-                      .resizable = OBZ_TRUE};
+    &(OBZ_WindowDesc){.title      = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
+                      .dim.width  = W,
+                      .dim.height = H,
+                      .resizable  = OBZ_TRUE};
 
   obz_window_create(ctx);
   ctx->scene = obz_scene_create();
