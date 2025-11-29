@@ -13,7 +13,7 @@
 #endif
 
 #define OBZ_STRINGIFY_(x) #x
-#define OBZ_STRINGIFY(x) OBZ_STRINGIFY_(x)
+#define OBZ_STRINGIFY(x)  OBZ_STRINGIFY_(x)
 
 #define OBZ_DO_PRAGMA(x) _Pragma(#x)
 
@@ -32,14 +32,13 @@
    DEPRECATED
    ========================================================================= */
 #if defined(__GNUC__) || defined(__clang__)
-    #define OBZ_API_REMOVED(msg) \
-      __attribute__((unavailable(msg)))
+#define OBZ_API_REMOVED(msg) __attribute__((unavailable(msg)))
 #elif defined(_MSC_VER)
-    #define OBZ_API_REMOVED(msg) \
-        __declspec(deprecated(msg)) \
-        __declspec(selectany) extern int OBZ_REMOVED_API_##__LINE__##_ERROR__[-1]
+#define OBZ_API_REMOVED(msg)  \
+  __declspec(deprecated(msg)) \
+  __declspec(selectany) extern int OBZ_REMOVED_API_##__LINE__##_ERROR__[-1]
 #else
-    #define OBZ_API_REMOVED(msg) OBZ_DO_PRAGMA(GCC error "This API is removed")
+#define OBZ_API_REMOVED(msg) OBZ_DO_PRAGMA(GCC error "This API is removed")
 #endif
 
 /* =========================================================================
@@ -112,9 +111,9 @@
     PACKED STRUCT MACRO: define a packed struct
    ========================================================================= */
 #if defined(_MSC_VER)
-    #define OBZ_PACKED_STRUCT(name) __pragma(pack(push, 1)) struct name __pragma(pack(pop))
+#define OBZ_PACKED_STRUCT(name) __pragma(pack(push, 1)) struct name __pragma(pack(pop))
 #else
-    #define OBZ_PACKED_STRUCT(name) struct __attribute__((packed)) name
+#define OBZ_PACKED_STRUCT(name) struct __attribute__((packed)) name
 #endif
 
 /* =========================================================================

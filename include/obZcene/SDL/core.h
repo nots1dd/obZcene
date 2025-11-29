@@ -85,9 +85,9 @@ extern "C"
   /* ---------- Window description ---------- */
   typedef struct
   {
-    const char* title;
+    const char*    title;
     OBZ_Dimensions dim;
-    OBZ_Bool    resizable;
+    OBZ_Bool       resizable;
   } OBZ_WindowDesc;
 
   /* ---------- Input state ---------- */

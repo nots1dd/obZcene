@@ -63,4 +63,33 @@ inline static void obz_arr_pop(OBZ_DynArray* a, void* out_elem)
     memcpy(out_elem, (char*)a->obz_data + a->size * a->elem_size, a->elem_size);
 }
 
+inline static void* obz_arr_get(OBZ_DynArray* a, size_t idx)
+{
+  if (idx >= a->size)
+    return NULL;
+  return (char*)a->obz_data + idx * a->elem_size;
+}
+
+// Const version
+inline static const void* obz_arr_get_const(const OBZ_DynArray* a, size_t idx)
+{
+  if (idx >= a->size)
+    return NULL;
+  return (const char*)a->obz_data + idx * a->elem_size;
+}
+
+// Set element at index `idx`
+// Does nothing if out of bounds
+inline static void obz_arr_set(OBZ_DynArray* a, size_t idx, const void* elem)
+{
+  if (idx >= a->size)
+    return;
+  memcpy((char*)a->obz_data + idx * a->elem_size, elem, a->elem_size);
+}
+
+inline static int obz_arr_exists(const OBZ_DynArray* a)
+{
+  return a && a->obz_data != NULL && a->size > 0;
+}
+
 #endif

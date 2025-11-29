@@ -73,25 +73,23 @@ void obz_camera_update_direction(OBZ_Camera* cam)
 
 void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw, int sh)
 {
+  if (!px || !py)
+    return;
   // forward = cam.direction
-  Vec3 fwd = cam.direction;
-  obz_vec3_norm(fwd);
+  const Vec3 fwd = obz_vec3_norm(cam.direction);
 
   // build right and up from yaw/pitch/roll or from direction
-  Vec3 world_up = {0, 1, 0};
-
-  Vec3 right = obz_vec3_cross(world_up, fwd);
-  obz_vec3_norm(right);
-
-  Vec3 up = obz_vec3_cross(fwd, right);
+  const Vec3 world_up = {0, 1, 0};
+  const Vec3 right = obz_vec3_norm(obz_vec3_cross(world_up, fwd));
+  const Vec3 up    = obz_vec3_cross(fwd, right);
 
   // vector from camera to point
-  Vec3 d = obz_vec3_sub(world_pos, cam.position);
+  const Vec3 d = obz_vec3_sub(world_pos, cam.position);
 
   // transform to camera space
-  float x = obz_vec3_dot(d, right);
-  float y = obz_vec3_dot(d, up);
-  float z = obz_vec3_dot(d, fwd);
+  const float x = obz_vec3_dot(d, right);
+  const float y = obz_vec3_dot(d, up);
+  const float z = obz_vec3_dot(d, fwd);
 
   if (z < cam.near)
   {

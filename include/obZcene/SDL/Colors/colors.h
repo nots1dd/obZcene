@@ -11,7 +11,7 @@
 // so yea typedef galore here
 typedef struct
 {
-  pixel r, g, b, a;
+  OBZ_channel r, g, b, a;
 } OBZ_Color;
 
 #ifdef __cplusplus

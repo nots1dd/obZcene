@@ -88,10 +88,10 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   ctx->quit           = OBZ_FALSE;
   ctx->last_time      = SDL_GetTicks();
   ctx->input.keyboard = SDL_GetKeyboardState(NULL);
-  ctx->log = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
+  ctx->log            = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
   OBZ_LOG_INFO(ctx->log, "obZcene logger created successfully!");
   OBZ_set_global_logger(ctx->log);
-  ctx->renctx         = malloc(sizeof(OBZ_RendererContext));
+  ctx->renctx = malloc(sizeof(OBZ_RendererContext));
   if (!ctx->renctx)
   {
     OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");

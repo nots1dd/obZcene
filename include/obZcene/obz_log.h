@@ -7,9 +7,9 @@
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
-#include <syscall.h>
 #include <stdlib.h>
 #include <string.h>
+#include <syscall.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -53,65 +53,70 @@ static inline OBZ_Logger* OBZ_get_global_logger(void) { return OBZ_GLOBAL_LOGGER
 static inline long __obz_get_tid(void)
 {
 #ifdef SYS_gettid
-    return (long)syscall(SYS_gettid);
+  return (long)syscall(SYS_gettid);
 #else
-    return -1;
+  return -1;
 #endif
 }
 
 static inline void OBZ_logger_print_info(OBZ_Logger* logger)
 {
-    if (!logger)
-    {
-        fprintf(stdout, "OBZ Logger: (null)\n");
-        return;
-    }
+  if (!logger)
+  {
+    fprintf(stdout, "OBZ Logger: (null)\n");
+    return;
+  }
 
-    static const char* lvl_names[] = {
-        "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
-    };
+  static const char* lvl_names[] = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
 
-    pthread_mutex_lock(&logger->lock);
+  pthread_mutex_lock(&logger->lock);
 
-    const char* env_lvl = getenv("OBZ_LOG_LEVEL");
+  const char* env_lvl = getenv("OBZ_LOG_LEVEL");
 
-    fprintf(stdout, "\n====== OBZ LOGGER INFO ======\n");
+  fprintf(stdout, "\n====== OBZ LOGGER INFO ======\n");
 
-    fprintf(stdout, "Logger address : %p\n", (void*)logger);
+  fprintf(stdout, "Logger address : %p\n", (void*)logger);
 
-    fprintf(stdout, "Process ID     : %d\n", getpid());
-    fprintf(stdout, "Thread ID      : %ld\n", __obz_get_tid());
+  fprintf(stdout, "Process ID     : %d\n", getpid());
+  fprintf(stdout, "Thread ID      : %ld\n", __obz_get_tid());
 
-    fprintf(stdout, "Log level      : %s\n", lvl_names[logger->level]);
+  fprintf(stdout, "Log level      : %s\n", lvl_names[logger->level]);
 
-    if (env_lvl)
-        fprintf(stdout, "OBZ_LOG_LEVEL  : '%s'\n", env_lvl);
-    else
-        fprintf(stdout, "OBZ_LOG_LEVEL  : (not set)\n");
+  if (env_lvl)
+    fprintf(stdout, "OBZ_LOG_LEVEL  : '%s'\n", env_lvl);
+  else
+    fprintf(stdout, "OBZ_LOG_LEVEL  : (not set)\n");
 
-    fprintf(stdout, "=============================\n\n");
+  fprintf(stdout, "=============================\n\n");
 
-    fflush(stdout);
+  fflush(stdout);
 
-    pthread_mutex_unlock(&logger->lock);
+  pthread_mutex_unlock(&logger->lock);
 }
 
 static inline OBZ_LogLevel OBZ_log_level_from_env(OBZ_LogLevel fallback)
 {
-    const char* env = getenv("OBZ_LOG_LEVEL");
-    if (!env) return fallback;
-
-    if (strcasecmp(env, "TRACE") == 0) return OBZ_LOG_TRACE;
-    if (strcasecmp(env, "DEBUG") == 0) return OBZ_LOG_DEBUG;
-    if (strcasecmp(env, "INFO")  == 0) return OBZ_LOG_INFO;
-    if (strcasecmp(env, "WARN")  == 0) return OBZ_LOG_WARN;
-    if (strcasecmp(env, "ERROR") == 0) return OBZ_LOG_ERROR;
-    if (strcasecmp(env, "FATAL") == 0) return OBZ_LOG_FATAL;
-
-    fprintf(stderr, "==> [OBZ_LOG] Warning: Invalid OBZ_LOG_LEVEL '%s', using fallback.\n", env);
-
-    // Invalid → keep fallback
+  const char* env = getenv("OBZ_LOG_LEVEL");
+  if (!env)
     return fallback;
+
+  if (strcasecmp(env, "TRACE") == 0)
+    return OBZ_LOG_TRACE;
+  if (strcasecmp(env, "DEBUG") == 0)
+    return OBZ_LOG_DEBUG;
+  if (strcasecmp(env, "INFO") == 0)
+    return OBZ_LOG_INFO;
+  if (strcasecmp(env, "WARN") == 0)
+    return OBZ_LOG_WARN;
+  if (strcasecmp(env, "ERROR") == 0)
+    return OBZ_LOG_ERROR;
+  if (strcasecmp(env, "FATAL") == 0)
+    return OBZ_LOG_FATAL;
+
+  fprintf(stderr, "==> [OBZ_LOG] Warning: Invalid OBZ_LOG_LEVEL '%s', using fallback.\n", env);
+
+  // Invalid → keep fallback
+  return fallback;
 }
 
 static inline OBZ_Logger* OBZ_logger_init(const char* file_path, OBZ_LogLevel level)
