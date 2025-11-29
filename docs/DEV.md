@@ -33,6 +33,11 @@ There arent too many rules just yet:
 
     Only after those operations are tested and benchmarked, they can be used inside `Utils/vec.h` for example.
 
+7. Sensible commits
+    
+    Do not add too much content in one commit itself. It is cumbersome to read and understand all the changes made.
+    Separate them into different logically equivalent chunks for better clarity
+
 There are more to come (hopefully) if I am not too busy.
 
 > [!NOTE]
