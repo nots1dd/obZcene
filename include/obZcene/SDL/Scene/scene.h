@@ -4,7 +4,7 @@
 #include "SDL/Colors/colors.h"
 #include "SDL/Mesh/mesh.h"
 #include "SDL/Textures/textures.h"
-#include "macros.h"
+#include "obz_macros.h"
 #include <stdint.h>
 
 typedef struct OBZ_Scene OBZ_Scene;

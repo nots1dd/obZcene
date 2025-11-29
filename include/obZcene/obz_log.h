@@ -1,13 +1,17 @@
 #ifndef OBZ_LOG_H
 #define OBZ_LOG_H
 
+// not sure if this logger will work on windows (but works really well on linux)
+
 #include <errno.h>
 #include <pthread.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <syscall.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
 
 typedef enum
 {
@@ -46,13 +50,77 @@ static inline void OBZ_set_global_logger(OBZ_Logger* logger) { OBZ_GLOBAL_LOGGER
 // Get the global logger
 static inline OBZ_Logger* OBZ_get_global_logger(void) { return OBZ_GLOBAL_LOGGER; }
 
+static inline long __obz_get_tid(void)
+{
+#ifdef SYS_gettid
+    return (long)syscall(SYS_gettid);
+#else
+    return -1;
+#endif
+}
+
+static inline void OBZ_logger_print_info(OBZ_Logger* logger)
+{
+    if (!logger)
+    {
+        fprintf(stdout, "OBZ Logger: (null)\n");
+        return;
+    }
+
+    static const char* lvl_names[] = {
+        "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
+    };
+
+    pthread_mutex_lock(&logger->lock);
+
+    const char* env_lvl = getenv("OBZ_LOG_LEVEL");
+
+    fprintf(stdout, "\n====== OBZ LOGGER INFO ======\n");
+
+    fprintf(stdout, "Logger address : %p\n", (void*)logger);
+
+    fprintf(stdout, "Process ID     : %d\n", getpid());
+    fprintf(stdout, "Thread ID      : %ld\n", __obz_get_tid());
+
+    fprintf(stdout, "Log level      : %s\n", lvl_names[logger->level]);
+
+    if (env_lvl)
+        fprintf(stdout, "OBZ_LOG_LEVEL  : '%s'\n", env_lvl);
+    else
+        fprintf(stdout, "OBZ_LOG_LEVEL  : (not set)\n");
+
+    fprintf(stdout, "=============================\n\n");
+
+    fflush(stdout);
+
+    pthread_mutex_unlock(&logger->lock);
+}
+
+static inline OBZ_LogLevel OBZ_log_level_from_env(OBZ_LogLevel fallback)
+{
+    const char* env = getenv("OBZ_LOG_LEVEL");
+    if (!env) return fallback;
+
+    if (strcasecmp(env, "TRACE") == 0) return OBZ_LOG_TRACE;
+    if (strcasecmp(env, "DEBUG") == 0) return OBZ_LOG_DEBUG;
+    if (strcasecmp(env, "INFO")  == 0) return OBZ_LOG_INFO;
+    if (strcasecmp(env, "WARN")  == 0) return OBZ_LOG_WARN;
+    if (strcasecmp(env, "ERROR") == 0) return OBZ_LOG_ERROR;
+    if (strcasecmp(env, "FATAL") == 0) return OBZ_LOG_FATAL;
+
+    fprintf(stderr, "==> [OBZ_LOG] Warning: Invalid OBZ_LOG_LEVEL '%s', using fallback.\n", env);
+
+    // Invalid → keep fallback
+    return fallback;
+}
+
 static inline OBZ_Logger* OBZ_logger_init(const char* file_path, OBZ_LogLevel level)
 {
   OBZ_Logger* logger = (OBZ_Logger*)malloc(sizeof(OBZ_Logger));
   if (!logger)
     return NULL;
 
-  logger->level = level;
+  logger->level = OBZ_log_level_from_env(level);
   pthread_mutex_init(&logger->lock, NULL);
 
   if (file_path)
@@ -60,7 +128,7 @@ static inline OBZ_Logger* OBZ_logger_init(const char* file_path, OBZ_LogLevel le
     logger->log_file = fopen(file_path, "a");
     if (!logger->log_file)
     {
-      fprintf(stderr, "Logger init error: %s\n", strerror(errno));
+      fprintf(stderr, "==> [OBZ_LOG] Logger init error: %s\n", strerror(errno));
       free(logger);
       return NULL;
     }
@@ -69,6 +137,8 @@ static inline OBZ_Logger* OBZ_logger_init(const char* file_path, OBZ_LogLevel le
   {
     logger->log_file = NULL;
   }
+
+  OBZ_logger_print_info(logger);
 
   logger->use_color = 1; // Always use color on stdout
   return logger;

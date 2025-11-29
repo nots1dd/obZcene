@@ -22,11 +22,11 @@ typedef struct
   OBZ_Texture* textures[OBZ_MAX_MESH_TEXTURES];
 } OBZ_MeshTextures;
 
-OBZ_Texture*      obz_tex_load_png(const char* path);
-OBZ_MeshTextures* obz_tex_create_for_mesh(OBZ_Mesh3D* mesh);
+OBZ_API OBZ_Texture*      obz_tex_load_png(const char* path);
+OBZ_API OBZ_MeshTextures* obz_tex_create_for_mesh(OBZ_Mesh3D* mesh);
 
-void obz_tex_free(OBZ_Texture* tex);
-void obz_tex_bind_to_mesh(OBZ_MeshTextures* mt, OBZ_Texture* tex, int slot);
-void obz_tex_unbind_from_mesh(OBZ_MeshTextures* mt, int slot);
+OBZ_API void obz_tex_free(OBZ_Texture* tex);
+OBZ_API void obz_tex_bind_to_mesh(OBZ_MeshTextures* mt, OBZ_Texture* tex, int slot);
+OBZ_API void obz_tex_unbind_from_mesh(OBZ_MeshTextures* mt, int slot);
 
 #endif

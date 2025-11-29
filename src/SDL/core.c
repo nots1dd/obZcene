@@ -88,6 +88,9 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   ctx->quit           = OBZ_FALSE;
   ctx->last_time      = SDL_GetTicks();
   ctx->input.keyboard = SDL_GetKeyboardState(NULL);
+  ctx->log = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
+  OBZ_LOG_INFO(ctx->log, "obZcene logger created successfully!");
+  OBZ_set_global_logger(ctx->log);
   ctx->renctx         = malloc(sizeof(OBZ_RendererContext));
   if (!ctx->renctx)
   {
@@ -106,11 +109,7 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
     return NULL;
   }
 
-  // Initialize logger AFTER memory allocation
-  ctx->log = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
-  OBZ_LOG_INFO(ctx->log, "obZcene context created successfully.");
-  OBZ_set_global_logger(ctx->log);
-
+  OBZ_LOG_INFO(ctx->log, "obZcene context created successfully!");
   OBZ_LOG_DEBUG(NULL, "Initializing SDL...");
 
   /* --- SDL init --- */
@@ -187,7 +186,7 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
 
   SDL_Window* w =
     SDL_CreateWindow(ctx->win_desc->title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                     ctx->win_desc->width, ctx->win_desc->height, flags);
+                     ctx->win_desc->dim.width, ctx->win_desc->dim.height, flags);
   if (!w)
   {
     OBZ_LOG_ERROR(NULL, "SDL_CreateWindow failed: %s", SDL_GetError());
@@ -212,7 +211,7 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
   }
 
   SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
-  SDL_RenderSetLogicalSize(r, ctx->win_desc->width, ctx->win_desc->height);
+  SDL_RenderSetLogicalSize(r, ctx->win_desc->dim.width, ctx->win_desc->dim.height);
   SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
   win->win      = w;
@@ -223,8 +222,8 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
     SDL_CreateTexture(ctx->main_win->ren, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING,
                       ctx->renctx->width, ctx->renctx->height);
 
-  OBZ_LOG_INFO(NULL, "Window created successfully: %dx%d", ctx->win_desc->width,
-               ctx->win_desc->height);
+  OBZ_LOG_INFO(NULL, "Window created successfully: %dx%d", ctx->win_desc->dim.width,
+               ctx->win_desc->dim.height);
 
   return OBZ_OK;
 }

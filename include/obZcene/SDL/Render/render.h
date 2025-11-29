@@ -5,6 +5,7 @@
 #include "SDL/Colors/colors.h"
 #include "SDL/Textures/textures.h"
 #include "Utils/vec.h"
+#include "obz_macros.h"
 
 #ifdef __cplusplus
 extern "C"

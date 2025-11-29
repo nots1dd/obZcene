@@ -15,7 +15,7 @@ void obz_renderer_clear(OBZ_RendererContext* renctx, pixel r, pixel g, pixel b, 
   }
 }
 
-void obz__core_put_pixel(OBZ_RendererContext* renctx, int x, int y, pixel r, pixel g, pixel b,
+void __OBZ_core_put_pixel(OBZ_RendererContext* renctx, int x, int y, pixel r, pixel g, pixel b,
                          pixel a)
 {
   if (!renctx || !renctx->framebuffer)
@@ -33,7 +33,7 @@ void obz__core_put_pixel(OBZ_RendererContext* renctx, int x, int y, pixel r, pix
 
 void obz_render_pixel(OBZ_RendererContext* renctx, int x, int y, OBZ_Color color)
 {
-  obz__core_put_pixel(renctx, x, y, color.r, color.g, color.b, color.a);
+  __OBZ_core_put_pixel(renctx, x, y, color.r, color.g, color.b, color.a);
 }
 
 // Simple line drawer (Bresenham)

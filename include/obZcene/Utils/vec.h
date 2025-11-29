@@ -2,7 +2,7 @@
 #define OBZ_UTILS_VEC_H
 
 #include "Math/simd/x86/sqrt.h"
-#include "macros.h"
+#include "obz_macros.h"
 
 typedef struct
 {

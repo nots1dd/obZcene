@@ -122,7 +122,7 @@ static void event(OBZ_Context* ctx, [[maybe_unused]] const void* ev)
   obz_camera_update(&ctx->cam, 1); // applies cam->velocity
 }
 
-int main(void)
+int main(int argc, char** argv)
 {
   OBZ_Callbacks cb  = {update, render, event};
   OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
@@ -135,8 +135,8 @@ int main(void)
 
   ctx->win_desc =
     &(OBZ_WindowDesc){.title     = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
-                      .width     = W,
-                      .height    = H,
+                      .dim.width     = W,
+                      .dim.height    = H,
                       .resizable = OBZ_TRUE};
 
   obz_window_create(ctx);

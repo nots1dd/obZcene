@@ -86,8 +86,7 @@ extern "C"
   typedef struct
   {
     const char* title;
-    int         width;
-    int         height;
+    OBZ_Dimensions dim;
     OBZ_Bool    resizable;
   } OBZ_WindowDesc;
 

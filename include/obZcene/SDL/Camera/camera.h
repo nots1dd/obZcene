@@ -3,7 +3,6 @@
 
 #include "Math/simd/x86/trig_pack.h"
 #include "Utils/vec.h"
-#include "macros.h"
 #include <stdbool.h>
 
 typedef struct
@@ -17,14 +16,13 @@ typedef struct
   float roll;
 
   float fov;
-  //float aspect;
   float near;
   float far;
 
-  bool  has_bounds;
   float min_x, max_x;
   float min_y, max_y;
   float min_z, max_z;
+  bool  has_bounds;
 
 } OBZ_Camera;
 
