@@ -152,8 +152,8 @@ inline static OBZ_Texture* make_checker_texture(int size, OBZ_Color a, OBZ_Color
   return tex;
 }
 
-inline static OBZ_Texture* make_wall_border_texture(int w, int h, OBZ_Color wall_col, OBZ_Color border_col,
-                                                    int thickness)
+inline static OBZ_Texture* make_wall_border_texture(int w, int h, OBZ_Color wall_col,
+                                                    OBZ_Color border_col, int thickness)
 {
   if (w <= 0 || h <= 0)
     return NULL;
@@ -216,9 +216,9 @@ inline static void scene_add_room(OBZ_Scene* scene, float W, float H, float D, i
   float       ceilY  = H * 0.5f;
   OBZ_Mesh3D* plane  = NULL;
 
-  OBZ_Color    wall_col    = COLOR_LIGHT_GRAY;
+  OBZ_Color    wall_col   = COLOR_LIGHT_GRAY;
   OBZ_Color    border_col = COLOR_DARK_GRAY;
-  OBZ_Texture* wall_tex     = make_wall_border_texture(64, 64, wall_col, border_col, 2);
+  OBZ_Texture* wall_tex   = make_wall_border_texture(64, 64, wall_col, border_col, 2);
   if (!wall_tex)
     OBZ_LOG_WARN(NULL, "make_wall_border_texture failed");
 

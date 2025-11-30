@@ -17,8 +17,8 @@ static void render(OBZ_Context* ctx)
     OBZ_Mesh3D*       mesh_i       = it.mesh;
     OBZ_MeshTextures* mesh_texture = obz_scene_get_mesh_textures(ctx->scene, it.index);
 
-    obz_render_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, it.rot->x, it.rot->y,
-                                  it.rot->z, ctx->cam);
+    obz_render_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, it.rot->x,
+                                    it.rot->y, it.rot->z, ctx->cam);
   }
 
   // CROSSHAIRS (CUSTOM!)

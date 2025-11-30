@@ -39,8 +39,8 @@ extern "C"
   OBZ_API void obz_render_triangle(OBZ_RendererContext* ctx, Vec3 v0, Vec3 v1, Vec3 v2, Vec2 uv0,
                                    Vec2 uv1, Vec2 uv2, OBZ_Texture* tex);
   OBZ_API void obz_render_mesh_textured_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh,
-                                             OBZ_MeshTextures* texs, float pitch, float yaw,
-                                             float roll, OBZ_Camera cam);
+                                               OBZ_MeshTextures* texs, float pitch, float yaw,
+                                               float roll, OBZ_Camera cam);
 
 #ifdef __cplusplus
 }

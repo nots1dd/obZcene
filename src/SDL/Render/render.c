@@ -5,35 +5,37 @@
 
 OBZ_RendererContext* obz_render_context_init(int width, int height)
 {
-    OBZ_RendererContext* renctx = malloc(sizeof(*renctx));
-    if (!renctx) {
-        OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
-        return NULL;
-    }
+  OBZ_RendererContext* renctx = malloc(sizeof(*renctx));
+  if (!renctx)
+  {
+    OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
+    return NULL;
+  }
 
-    renctx->width  = width;
-    renctx->height = height;
-  
-    const size_t pixel_count = (size_t)(width * height);
+  renctx->width  = width;
+  renctx->height = height;
 
-    renctx->framebuffer = malloc( pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
-    if (!renctx->framebuffer)
-    {
-      OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
-      free(renctx);
-      return NULL;
-    }
+  const size_t pixel_count = (size_t)(width * height);
 
-    // Float Z-buffer
-    renctx->zbuffer = obz_arr_create(sizeof(float));
-    obz_arr_reserve(&renctx->zbuffer, pixel_count);
+  renctx->framebuffer = malloc(pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
+  if (!renctx->framebuffer)
+  {
+    OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
+    free(renctx);
+    return NULL;
+  }
 
-    OBZ_ASSERT(obz_arr_exists(&renctx->zbuffer));
-    OBZ_ASSERT(renctx != NULL);
+  // Float Z-buffer
+  renctx->zbuffer = obz_arr_create(sizeof(float));
+  obz_arr_reserve(&renctx->zbuffer, pixel_count);
 
-    OBZ_LOG_INFO(NULL, "obZcene renderer context created successfully (w: %d, h: %d).", width, height);
+  OBZ_ASSERT(obz_arr_exists(&renctx->zbuffer));
+  OBZ_ASSERT(renctx != NULL);
 
-    return renctx;
+  OBZ_LOG_INFO(NULL, "obZcene renderer context created successfully (w: %d, h: %d).", width,
+               height);
+
+  return renctx;
 }
 
 void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color)
@@ -159,8 +161,8 @@ void __OBZ_render_quad(OBZ_RendererContext* ctx, Vec3 v[4], Vec2 uv[4], OBZ_Text
 }
 
 void obz_render_mesh_textured_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh,
-                                   OBZ_MeshTextures* texs, float pitch, float yaw, float roll,
-                                   OBZ_Camera cam)
+                                     OBZ_MeshTextures* texs, float pitch, float yaw, float roll,
+                                     OBZ_Camera cam)
 {
   if (!ctx || !mesh)
     return;
