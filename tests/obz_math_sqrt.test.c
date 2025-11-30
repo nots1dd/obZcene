@@ -28,8 +28,9 @@ int main(void)
     const int N = 2000000;
     const int RUNS = 2;
 
-    float *xs  = malloc(sizeof(float) * N);
-    float *out = malloc(sizeof(float) * N);
+    float* xs  = malloc(sizeof(float) * N);
+    float* out = malloc(sizeof(float) * N);
+    float* simd_out = malloc(sizeof(float) * N);
 
     for (int i = 0; i < N; i++)
         xs[i] = frand(0.001f, 10000.0f);
@@ -51,18 +52,18 @@ int main(void)
 
     // SSE sqrt
 #if OBZ_HAS_SSE
-    BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_sse, (xs, out, N), "SSE sqrt", RUNS, xs, out, N, t_sqrtf);
-    BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_vec_sse, (xs, out, N), "SSE rsqrt", RUNS, xs, out, N, t_rsqrtf);
+    OBZ_BENCH_SIMD_ARRAY(sqrtf, OBZ__SIMD_sqrt_vec_sse, xs, out, simd_out, N, RUNS);
+    OBZ_BENCH_SIMD_ARRAY(rsqrtf, OBZ__SIMD_rsqrt_vec_sse, xs, out, simd_out, N, RUNS);
 #endif
 
 #if OBZ_HAS_AVX2
-    BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_avx2, (xs, out, N), "AVX2 sqrt", RUNS, xs, out, N, t_sqrtf);
-    BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_newton_vec_avx2, (xs, out, N), "AVX2 rsqrt Newton", RUNS, xs, out, N, t_rsqrtf);
+    OBZ_BENCH_SIMD_ARRAY(sqrtf, OBZ__SIMD_sqrt_vec_avx2, xs, out, simd_out, N, RUNS);
+    OBZ_BENCH_SIMD_ARRAY(rsqrtf, OBZ__SIMD_rsqrt_vec_avx2, xs, out, simd_out, N, RUNS);
 #endif
 
 #if OBZ_HAS_AVX512
-    BENCH_SIMD_TYPE(float, sqrtf, __SIMD_sqrt_vec_avx512, (xs, out, N), "AVX-512 sqrt", RUNS, xs, out, N, t_sqrtf);
-    BENCH_SIMD_TYPE(float, rsqrtf, __SIMD_rsqrt_newton_vec_avx512, (xs, out, N), "AVX-512 rsqrt Newton", RUNS, xs, out, N, t_rsqrtf);
+    OBZ_BENCH_SIMD_ARRAY(sqrtf, OBZ__SIMD_sqrt_vec_avx512, xs, out, simd_out, N, RUNS);
+    OBZ_BENCH_SIMD_ARRAY(rsqrtf, OBZ__SIMD_rsqrt_vec_avx512, xs, out, simd_out, N, RUNS);
 #endif
 
     free(xs);

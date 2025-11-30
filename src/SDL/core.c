@@ -91,24 +91,8 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   ctx->log            = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
   OBZ_LOG_INFO(ctx->log, "obZcene logger created successfully!");
   OBZ_set_global_logger(ctx->log);
-  ctx->renctx = malloc(sizeof(OBZ_RendererContext));
-  if (!ctx->renctx)
-  {
-    OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
-    free(ctx);
-    return NULL;
-  }
-  ctx->renctx->width       = dims.width;
-  ctx->renctx->height      = dims.height;
-  ctx->renctx->framebuffer = malloc(ctx->renctx->width * ctx->renctx->height * 4); // RGBA
-  if (!ctx->renctx->framebuffer)
-  {
-    OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
-    free(ctx->renctx);
-    free(ctx);
-    return NULL;
-  }
-
+  // will check for NULL internally
+  ctx->renctx = obz_render_context_init(dims.width, dims.height);
   OBZ_LOG_INFO(ctx->log, "obZcene context created successfully!");
   OBZ_LOG_DEBUG(NULL, "Initializing SDL...");
 

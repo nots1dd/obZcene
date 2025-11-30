@@ -1,5 +1,35 @@
 # Development on obZcene
 
+> [!IMPORTANT]
+> 
+> The build system is currently just a big Makefile.
+> 
+> If need arises, I will switch over to `CMake` in the future
+> to not complicate things.
+> 
+
+## Getting clangd to work
+
+It is **HIGHLY** recommended you have a LSP (preferably clangd) to work on obZcene.
+
+> [!NOTE]
+> 
+> To get clangd working, you will need to install `bear`:
+> 
+> ```bash 
+> # on Arch (pacman)
+> sudo pacman -S bear
+> # then use it like so:
+> cd obZcene
+> bear -- make rebuild
+> mv compile_commands.json build/
+> ```
+> 
+> After that, reload your LSP it *should* work.
+> 
+
+Not sure on other distros, but you check out [bear](https://github.com/rizsotto/Bear) here for more details.
+
 There arent too many rules just yet:
 
 1. FORMAT THE CODE BEFORE COMMITING:

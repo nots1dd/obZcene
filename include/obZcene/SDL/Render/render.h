@@ -8,6 +8,8 @@
 #include "types.h"
 #include <stdint.h>
 
+#define OBZ_Z_BUF_CLEAR 1.0f
+
 #ifdef __cplusplus
 extern "C"
 {
@@ -28,13 +30,8 @@ extern "C"
     return (c.a << 24) | (c.b << 16) | (c.g << 8) | c.r;
   }
 
-  inline static void obz_renderer_init_zbuffer(OBZ_RendererContext* ctx)
-  {
-    obz_arr_reserve(&ctx->zbuffer, ctx->width * ctx->height);
-    const float clearbuf = 1.0f;
-    for (int i = 0; i < ctx->width * ctx->height; i++)
-      obz_arr_push(&ctx->zbuffer, &clearbuf); // farthest depth
-  }
+  // render the context, framebuffer and the zbuffer
+  OBZ_API OBZ_RendererContext* obz_render_context_init(int width, int height);
 
   // Clear framebuffer + depth buffer
   OBZ_API void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color);

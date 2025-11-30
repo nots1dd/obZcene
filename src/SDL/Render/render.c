@@ -1,6 +1,40 @@
 #include "SDL/Render/render.h"
+#include "obz_log.h"
 #include <alloca.h>
 #include <math.h>
+
+OBZ_RendererContext* obz_render_context_init(int width, int height)
+{
+    OBZ_RendererContext* renctx = malloc(sizeof(*renctx));
+    if (!renctx) {
+        OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
+        return NULL;
+    }
+
+    renctx->width  = width;
+    renctx->height = height;
+  
+    const size_t pixel_count = (size_t)(width * height);
+
+    renctx->framebuffer = malloc( pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
+    if (!renctx->framebuffer)
+    {
+      OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
+      free(renctx);
+      return NULL;
+    }
+
+    // Float Z-buffer
+    renctx->zbuffer = obz_arr_create(sizeof(float));
+    obz_arr_reserve(&renctx->zbuffer, pixel_count);
+
+    OBZ_ASSERT(obz_arr_exists(&renctx->zbuffer));
+    OBZ_ASSERT(renctx != NULL);
+
+    OBZ_LOG_INFO(NULL, "obZcene renderer context created successfully (w: %d, h: %d).", width, height);
+
+    return renctx;
+}
 
 void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color)
 {
@@ -13,7 +47,7 @@ void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color)
   // Clear z-buffer if it exists
   if (obz_arr_exists(&ctx->zbuffer))
   {
-    float z_clear = 1.0f;
+    const float z_clear = OBZ_Z_BUF_CLEAR;
     for (int i = 0; i < n; i++)
       obz_arr_set(&ctx->zbuffer, i, &z_clear);
   }
