@@ -11,16 +11,15 @@ extern "C"
 {
 #endif
 
-  /* ----- Meaningful typedefs ----- */
   typedef size_t obz_index_t; /* index into the array    */
   typedef size_t obz_count_t; /* number of elements      */
   typedef size_t obz_bytes_t; /* number of bytes         */
 
   /*
-  elem_size  = size in bytes of a single element
-  size       = number of valid elements
-  capacity   = number of allocated slots (in elements)
-*/
+    elem_size  = size in bytes of a single element
+    size       = number of valid elements
+    capacity   = number of allocated slots (in elements)
+  */
   typedef struct
   {
     void*       obz_data;
