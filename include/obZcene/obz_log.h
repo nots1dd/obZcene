@@ -2,6 +2,8 @@
 #define OBZ_LOG_H
 
 // not sure if this logger will work on windows (but works really well on linux)
+//
+// thread safe logger with log levels and optional file output (looks modern imo)
 
 #include <errno.h>
 #include <pthread.h>
@@ -12,6 +14,14 @@
 #include <syscall.h>
 #include <time.h>
 #include <unistd.h>
+
+#define OBZ_COLOR_RESET_ANSI "\033[0m"
+#define OBZ_COLOR_TRACE_ANSI "\033[37m" // White
+#define OBZ_COLOR_DEBUG_ANSI "\033[36m" // Cyan
+#define OBZ_COLOR_INFO_ANSI  "\033[32m" // Green
+#define OBZ_COLOR_WARN_ANSI  "\033[33m" // Yellow
+#define OBZ_COLOR_ERROR_ANSI "\033[31m" // Red
+#define OBZ_COLOR_FATAL_ANSI "\033[41m" // Red background
 
 #ifdef __cplusplus
 extern "C"
@@ -36,15 +46,6 @@ extern "C"
     int             use_color; // Whether to use colors for stdout
   } OBZ_Logger;
 
-#define OBZ_COLOR_RESET_ANSI "\033[0m"
-#define OBZ_COLOR_TRACE_ANSI "\033[37m" // White
-#define OBZ_COLOR_DEBUG_ANSI "\033[36m" // Cyan
-#define OBZ_COLOR_INFO_ANSI  "\033[32m" // Green
-#define OBZ_COLOR_WARN_ANSI  "\033[33m" // Yellow
-#define OBZ_COLOR_ERROR_ANSI "\033[31m" // Red
-#define OBZ_COLOR_FATAL_ANSI "\033[41m" // Red background
-
-  // not really working will fix this
   extern OBZ_Logger* OBZ_GLOBAL_LOGGER;
 
 #define DECLARE_OBZ_GLOBAL_LOGGER() OBZ_Logger* OBZ_GLOBAL_LOGGER = NULL;
