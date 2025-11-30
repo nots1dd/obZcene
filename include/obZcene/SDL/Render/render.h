@@ -1,5 +1,5 @@
-#ifndef OBZ_RENDER_H
-#define OBZ_RENDER_H
+#ifndef OBZ_SDL_RENDER_H
+#define OBZ_SDL_RENDER_H
 
 #include "SDL/Camera/camera.h"
 #include "SDL/Colors/colors.h"
@@ -46,4 +46,4 @@ extern "C"
 }
 #endif
 
-#endif /* OBZ_RENDER_H */
+#endif /* OBZ_SDL_RENDER_H */

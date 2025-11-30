@@ -9,13 +9,15 @@ OBZ_RendererContext* obz_render_context_init(int width, int height)
   if (!renctx)
   {
     OBZ_LOG_ERROR(NULL, "Failed to allocate RendererContext.");
+    free(renctx);
     return NULL;
   }
 
   renctx->width  = width;
   renctx->height = height;
 
-  const size_t pixel_count = (size_t)(width * height);
+  // count is just size_t alias; easy to understand when calling obz_arr apis
+  const obz_count_t pixel_count = (size_t)(width * height);
 
   renctx->framebuffer = malloc(pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
   if (!renctx->framebuffer)

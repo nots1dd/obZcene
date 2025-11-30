@@ -4,28 +4,28 @@
 #include "types.h"
 #include <stdint.h>
 
-/* ---------- Colors ---------- */
-
-// channel is ui8
-//
-// THING TO NOTE:
-//
-// The color channels are stored in RGBA order in the struct,
-// but when packed into a 32-bit integer for rendering, they are
-// arranged in AGBR order.
-//
-// {WHY}
-// CONCEPTUALLY, colors are often represented in RGBA order.
-// but SDL seems to be working only with ABGR idk y
-typedef struct
-{
-  OBZ_channel r, g, b, a;
-} OBZ_Color;
-
 #ifdef __cplusplus
 extern "C"
 {
 #endif
+
+  /* ---------- Colors ---------- */
+
+  // channel is ui8
+  //
+  // THING TO NOTE:
+  //
+  // The color channels are stored in RGBA order in the struct,
+  // but when packed into a 32-bit integer for rendering, they are
+  // arranged in AGBR order.
+  //
+  // {WHY}
+  // CONCEPTUALLY, colors are often represented in RGBA order.
+  // but SDL seems to be working only with ABGR idk y
+  typedef struct
+  {
+    OBZ_channel r, g, b, a;
+  } OBZ_Color;
 
   /* Common opaque utf8-ish names */
   static const OBZ_Color COLOR_TRANSPARENT = {0, 0, 0, 0};
