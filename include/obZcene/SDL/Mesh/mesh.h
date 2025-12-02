@@ -1,7 +1,7 @@
 #ifndef OBZ_SDL_MESH_H
 #define OBZ_SDL_MESH_H
 
-#include "Obj/parser.h"
+#include "Obj/obj.h"
 #include "Utils/vec.h"
 #include <stdlib.h>
 

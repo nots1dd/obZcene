@@ -32,6 +32,9 @@ static void update(OBZ_Context* ctx, float dt)
     return;
 
   obz_scene_update(ctx->scene, dt);
+  obz_camera_update(&ctx->cam, dt);
+
+  print_camera_debug(&ctx->cam);
 
   /* input handling lives here */
   (void)dt;
@@ -62,16 +65,17 @@ void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
     return;
   }
 
-  // Normalize input to avoid diagonal speed boost
   input = obz_vec3_norm(input);
 
-  Vec3 fwd   = obz_vec3_norm(cam->direction);
-  Vec3 right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 1, 0}, fwd));
-  if (obz_vec3_len(right) < 1e-6f)
-    right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 0, 1}, fwd));
-  Vec3 up = obz_vec3_cross(fwd, right);
+  Vec3 fwd = obz_vec3_norm(cam->direction);
 
-  // Compute velocity
+  static const Vec3 world_up = {0, 1, 0};
+  Vec3              right    = obz_vec3_cross(world_up, fwd);
+
+  right = obz_vec3_norm(right);
+
+  Vec3 up = obz_vec3_norm(obz_vec3_cross(fwd, right));
+
   cam->velocity = obz_vec3_add(
     obz_vec3_add(obz_vec3_mulf(fwd, input.z * speed), obz_vec3_mulf(right, input.x * speed)),
     obz_vec3_mulf(up, input.y * speed));
@@ -102,7 +106,7 @@ static void event(OBZ_Context* ctx, const void* ev)
     ctx->cam.pitch -= dy * sensitivity;
 
     // Clamp pitch
-    ctx->cam.pitch = clampf(ctx->cam.pitch, -1.5f, 1.5f);
+    ctx->cam.pitch = obz_clampf(ctx->cam.pitch, -1.5f, 1.5f);
   }
 
   last_mx = in->mouse_x;
@@ -114,10 +118,6 @@ static void event(OBZ_Context* ctx, const void* ev)
   // Camera movement
   float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
   camera_move(&ctx->cam, keyboard, speed);
-
-  // Apply movement (use real frame delta if available)
-  float dt = 0.016f; // ~60 FPS; replace with real frame delta if you have it
-  obz_camera_update(&ctx->cam, dt);
 }
 
 int main(int argc, char** argv)

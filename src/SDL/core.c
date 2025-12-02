@@ -71,7 +71,7 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
 {
   if (!cb)
   {
-    fprintf(stderr, "[ERROR] Callback struct is NULL.\n");
+    fprintf(stderr, "[ERROR] OBZ_Callback struct is NULL!\n");
     return NULL;
   }
 
@@ -113,10 +113,6 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
     return 0;
   }
   OBZ_LOG_DEBUG(NULL, "SDL_image initialized with PNG & JPG support.");
-
-#ifdef _WIN32
-  SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
-#endif
 
   return ctx;
 }
@@ -281,7 +277,6 @@ OBZ_Result obz_run(OBZ_Context* ctx)
         ctx->cb.event(ctx, &ev);
     }
 
-    /* Delta time */
     Uint64 now              = SDL_GetPerformanceCounter();
     float  dt               = (float)((now - ctx->timer.last_counter) / ctx->timer.perf_freq);
     ctx->timer.last_counter = now;

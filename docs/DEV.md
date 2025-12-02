@@ -68,6 +68,25 @@ There arent too many rules just yet:
     Do not add too much content in one commit itself. It is cumbersome to read and understand all the changes made.
     Separate them into different logically equivalent chunks for better clarity
 
+8. When to use `auto`
+
+    Yes I have a typedef `auto` which just resolves to `__auto_type` for `gcc` and `clang` for compile time deduction of
+    types (similar to cpp). But this is **NOT** meant to be spammed everywhere for convenience.
+
+    Here is an example of using `auto` properly:
+
+    ```c 
+    auto x    = (OBZ_Channel)(i + j * k);               // When explicit casts are made [X]
+
+    auto xptr = (float*)fun_which_has_voidptr(data, i); // When we are inferring a type from void pointer
+
+    auto y    = some_func(data, double);                // When the return or conversion type is mentioned in the function / macro
+    ```
+
+    These are the only cases where `auto` is acceptable.
+
+    Why did I make this choice? Idk thought why not.
+
 There are more to come (hopefully) if I am not too busy.
 
 > [!NOTE]

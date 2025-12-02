@@ -125,9 +125,9 @@ extern "C"
   }
 
   /* ----- Check whether initialized + contains elements ----- */
-  inline static bool obz_arr_exists(const OBZ_DynArray* a)
+  inline static bool obz_arr_exists(const OBZ_DynArray* array)
   {
-    return a && a->obz_data != NULL && a->size > 0;
+    return array && array->obz_data != NULL && array->size > 0;
   }
 
 #ifdef __cplusplus

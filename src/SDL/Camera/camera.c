@@ -1,4 +1,5 @@
 #include "SDL/Camera/camera.h"
+#include "Math/clamp.h"
 #include <math.h>
 
 OBZ_Camera obz_camera_init(const Vec3 pos, float W, [[maybe_unused]] float H, float fov_deg)
@@ -32,18 +33,9 @@ void obz_camera_update(OBZ_Camera* cam, float dt)
 
   if (cam->has_bounds)
   {
-    if (cam->position.x < cam->min_x)
-      cam->position.x = cam->min_x;
-    if (cam->position.x > cam->max_x)
-      cam->position.x = cam->max_x;
-    if (cam->position.y < cam->min_y)
-      cam->position.y = cam->min_y;
-    if (cam->position.y > cam->max_y)
-      cam->position.y = cam->max_y;
-    if (cam->position.z < cam->min_z)
-      cam->position.z = cam->min_z;
-    if (cam->position.z > cam->max_z)
-      cam->position.z = cam->max_z;
+    cam->position.x = obz_clampf(cam->position.x, cam->min_x, cam->max_x);
+    cam->position.y = obz_clampf(cam->position.x, cam->min_y, cam->max_y);
+    cam->position.z = obz_clampf(cam->position.z, cam->min_z, cam->max_z);
   }
 }
 

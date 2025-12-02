@@ -27,48 +27,50 @@ inline static char* __OBZ_dirname_alloc(const char* path)
 
 static inline void obz_strncpy(char* dst, const char* src, size_t dst_size)
 {
-    if (!dst || !src || dst_size == 0) return;
+  if (!dst || !src || dst_size == 0)
+    return;
 
-    size_t n = strnlen(src, dst_size - 1);
-    memcpy(dst, src, n);
-    dst[n] = '\0';
+  size_t n = strnlen(src, dst_size - 1);
+  memcpy(dst, src, n);
+  dst[n] = '\0';
 }
 
 inline static char* __OBZ_str_concat(const char* a, const char* b)
 {
-    if (!a || !b)
-        return NULL;
+  if (!a || !b)
+    return NULL;
 
-    size_t la = strlen(a);
-    size_t lb = strlen(b);
-    char* out = (char*)obz_malloc(la + lb + 1);
+  size_t la  = strlen(a);
+  size_t lb  = strlen(b);
+  char*  out = (char*)obz_malloc(la + lb + 1);
 
-    memcpy(out, a, la);
-    memcpy(out + la, b, lb);
-    out[la + lb] = '\0';
+  memcpy(out, a, la);
+  memcpy(out + la, b, lb);
+  out[la + lb] = '\0';
 
-    return out;
+  return out;
 }
 
 /* join dir + filename into a malloc'd path (caller frees) */
 inline static char* __OBZ_join_path(const char* dir, const char* file)
 {
-    if (!dir || !file)
-        return NULL;
+  if (!dir || !file)
+    return NULL;
 
-    size_t ld = strlen(dir);
-    int need_sep = (ld > 0 && dir[ld - 1] != '/' && dir[ld - 1] != '\\');
+  size_t ld       = strlen(dir);
+  int    need_sep = (ld > 0 && dir[ld - 1] != '/' && dir[ld - 1] != '\\');
 
-    if (need_sep) {
-        // dir + "/" + file
-        char* tmp = __OBZ_str_concat(dir, "/");
-        char* out = __OBZ_str_concat(tmp, file);
-        obz_free(tmp);
-        return out;
-    }
+  if (need_sep)
+  {
+    // dir + "/" + file
+    char* tmp = __OBZ_str_concat(dir, "/");
+    char* out = __OBZ_str_concat(tmp, file);
+    obz_free(tmp);
+    return out;
+  }
 
-    // dir already ends with separator → dir + file
-    return __OBZ_str_concat(dir, file);
+  // dir already ends with separator → dir + file
+  return __OBZ_str_concat(dir, file);
 }
 
 inline static char* __OBZ_skipws(char* s)

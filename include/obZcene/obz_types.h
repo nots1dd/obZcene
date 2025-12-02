@@ -3,6 +3,10 @@
 
 #include <stdint.h>
 
+#if defined(__GNUC__) || defined(__clang__)
+#define auto __auto_type
+#endif
+
 #ifdef __cplusplus
 extern "C"
 {

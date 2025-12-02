@@ -46,12 +46,7 @@ extern "C"
     return new_ptr;
   }
 
-  static inline void* obz_stack_alloc(size_t size)
-  {
-    if (size == 0)
-      return NULL;
-    return alloca(size);
-  }
+#define OBZ_STACK_ALLOC(nmemb, size) alloca(nmemb* size)
 
   static inline void __obz_free_impl(void** pp)
   {
