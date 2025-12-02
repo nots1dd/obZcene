@@ -67,15 +67,18 @@ void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
 
   input = obz_vec3_norm(input);
 
-  Vec3 fwd = obz_vec3_norm(cam->direction);
-
+  Vec3              fwd      = obz_vec3_norm(cam->direction);
   static const Vec3 world_up = {0, 1, 0};
-  Vec3              right    = obz_vec3_cross(world_up, fwd);
 
-  right = obz_vec3_norm(right);
+  Vec3 right = obz_vec3_cross(world_up, fwd);
+  right      = obz_vec3_norm(right);
 
-  Vec3 up = obz_vec3_norm(obz_vec3_cross(fwd, right));
+  if (obz_vec3_len(right) < 1e-6f)
+    right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 0, 1}, fwd));
 
+  Vec3 up = obz_vec3_cross(fwd, right);
+
+  // Compute velocity
   cam->velocity = obz_vec3_add(
     obz_vec3_add(obz_vec3_mulf(fwd, input.z * speed), obz_vec3_mulf(right, input.x * speed)),
     obz_vec3_mulf(up, input.y * speed));

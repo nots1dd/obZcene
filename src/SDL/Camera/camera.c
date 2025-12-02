@@ -34,7 +34,7 @@ void obz_camera_update(OBZ_Camera* cam, float dt)
   if (cam->has_bounds)
   {
     cam->position.x = obz_clampf(cam->position.x, cam->min_x, cam->max_x);
-    cam->position.y = obz_clampf(cam->position.x, cam->min_y, cam->max_y);
+    cam->position.y = obz_clampf(cam->position.y, cam->min_y, cam->max_y);
     cam->position.z = obz_clampf(cam->position.z, cam->min_z, cam->max_z);
   }
 }
