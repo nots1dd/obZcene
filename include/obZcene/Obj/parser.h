@@ -7,6 +7,11 @@
 #include "obz_types.h"
 #include <ctype.h>
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 inline static void obz_objmesh_init(OBZ_ObjMesh* m)
 {
   m->positions = obz_arr_create(sizeof(Vec3));
@@ -206,5 +211,9 @@ inline static OBZ_Result obz_obj_load(const char* path, OBZ_ObjMesh* out)
 
   return OBZ_OK;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* OBZ_OBJ_PARSER_H */

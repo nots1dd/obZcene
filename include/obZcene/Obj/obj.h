@@ -5,6 +5,11 @@
 #include "Utils/dynarray.h"
 #include "Utils/vec.h"
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #ifndef OBZ_OBJ_LINE_MAX
 #define OBZ_OBJ_LINE_MAX 1024
 #endif
@@ -38,4 +43,8 @@ typedef struct
   OBZ_Texture* map_Kd; /* optional texture path (map_Kd) */
 } OBZ_Material;
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* OBZ_OBJ_H */

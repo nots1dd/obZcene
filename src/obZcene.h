@@ -31,7 +31,7 @@ inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int l
     obz_render_pixel(rc, cx, y, 0, color);
 }
 
-inline static void init_scene(OBZ_Scene* scene)
+inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
 {
   if (!scene)
   {
@@ -40,7 +40,7 @@ inline static void init_scene(OBZ_Scene* scene)
   }
 
   OBZ_ObjMesh out;
-  if (obz_obj_load("assets/models/Skull/Skull.obj", &out) != OBZ_OK)
+  if (obz_obj_load(obj_file_path, &out) != OBZ_OK)
   {
     OBZ_LOG_FATAL(NULL, "init_scene: failed to load OBJ model from asset!!");
     exit(-1);

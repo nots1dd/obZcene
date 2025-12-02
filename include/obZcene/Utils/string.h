@@ -25,6 +25,15 @@ inline static char* __OBZ_dirname_alloc(const char* path)
   return out;
 }
 
+static inline void obz_strncpy(char* dst, const char* src, size_t dst_size)
+{
+    if (!dst || !src || dst_size == 0) return;
+
+    size_t n = strnlen(src, dst_size - 1);
+    memcpy(dst, src, n);
+    dst[n] = '\0';
+}
+
 inline static char* __OBZ_str_concat(const char* a, const char* b)
 {
     if (!a || !b)

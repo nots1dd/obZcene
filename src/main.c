@@ -143,7 +143,7 @@ int main(int argc, char** argv)
   OBZ_LOG_INFO(NULL, "obZcene 3D Room Demo started.");
 
   // Initialize scene
-  init_scene(ctx->scene);
+  init_scene(ctx->scene, argv[1]);
   obz_run(ctx);
 
   // Cleanup

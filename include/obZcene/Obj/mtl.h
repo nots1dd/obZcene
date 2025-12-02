@@ -1,10 +1,15 @@
-#ifndef OBZ_OBZ_MTL_PARSER_H
-#define OBZ_OBZ_MTL_PARSER_H
+#ifndef OBZ_OBJ_MTL_PARSER_H
+#define OBZ_OBJ_MTL_PARSER_H
 
 #include "Obj/obj.h"
 #include "Utils/string.h"
 #include "obz_log.h"
 #include <libgen.h>
+
+#ifdef __cplusplus
+extern "C"
+{
+#endif
 
 /* Find material index by name, returns -1 if not found */
 inline static int __OBZ_find_material(const OBZ_ObjMesh* mesh, const char* name)
@@ -67,7 +72,7 @@ inline static OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
       }
       char name[64] = {0};
       sscanf(p + 6, "%63s", name);
-      strncpy(cur.name, name, sizeof(cur.name) - 1);
+      obz_strncpy(cur.name, name, sizeof(cur.name) - 1);
       in_mat = 1;
       continue;
     }
@@ -98,8 +103,7 @@ inline static OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
       sscanf(p + 6, "%255s", texpath_rel);
 
       char dir[PATH_MAX] = {0};
-      strncpy(dir, mtl_path, PATH_MAX - 1);
-      dir[PATH_MAX - 1] = '\0';
+      obz_strncpy(dir, mtl_path, PATH_MAX - 1);
       char* dname       = dirname(dir);
 
       char full_texpath[PATH_MAX] = {0};
@@ -113,7 +117,7 @@ inline static OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
       }
 
       // Load texture from the parsed path
-      cur.map_Kd = obz_tex_load_png(full_texpath); // or your loader function
+      cur.map_Kd = obz_tex_load_png(full_texpath);
       if (!cur.map_Kd)
       {
         OBZ_LOG_WARN(NULL, "Failed to load texture for material: %s", full_texpath);
@@ -133,4 +137,8 @@ inline static OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
   return OBZ_OK;
 }
 
+#ifdef __cplusplus
+}
 #endif
+
+#endif /* OBZ_OBJ_MTL_PARSER_H */
