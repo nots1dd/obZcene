@@ -14,19 +14,16 @@ static const float margin = 20.0f;
 
 inline static void print_camera_debug(const OBZ_Camera* cam)
 {
-    Vec3 fwd   = obz_vec3_norm(cam->direction);
+  Vec3 fwd = obz_vec3_norm(cam->direction);
 
-    printf(
-        "\r"
-        "POS: %.2f %.2f %.2f | "
-        "DIR: %.2f %.2f %.2f | "
-        "YAW: %.2f | PITCH: %.2f   ",
-        cam->position.x, cam->position.y, cam->position.z,
-        fwd.x, fwd.y, fwd.z,
-        cam->yaw, cam->pitch
-    );
+  printf("\r"
+         "POS: %.2f %.2f %.2f | "
+         "DIR: %.2f %.2f %.2f | "
+         "YAW: %.2f | PITCH: %.2f   ",
+         cam->position.x, cam->position.y, cam->position.z, fwd.x, fwd.y, fwd.z, cam->yaw,
+         cam->pitch);
 
-    fflush(stdout);
+  fflush(stdout);
 }
 
 inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int length, int gap,

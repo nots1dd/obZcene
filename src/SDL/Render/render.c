@@ -215,8 +215,8 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
   if (nverts == 0 || nfaces == 0)
     return;
 
-  Vec3* verts_world  = OBZ_STACK_ALLOC(nverts, sizeof(Vec3));
-  Vec3* verts_screen = OBZ_STACK_ALLOC(nverts, sizeof(Vec3));
+  Vec3* verts_world  = obz_malloc(nverts * sizeof(Vec3));
+  Vec3* verts_screen = obz_malloc(nverts * sizeof(Vec3));
 
   /* Precompute rotation */
   float cp = cosf(pitch), sp = sinf(pitch);

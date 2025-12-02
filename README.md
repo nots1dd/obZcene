@@ -23,7 +23,7 @@ Possibly a super small but very powerful **Immediate mode** game engine (possibl
 
 - Make (GNU)
 - SDL2 (SDL2 and SDL2_image)
-- C23 standard compliant compiler
+- C23 standard compliant compiler (!! **MSVC** WON'T WORK !!)
 
 **OPTIONAL**
 - Bear (https://github.com/rizsotto/Bear) [for generating compilation database for clang tooling]
