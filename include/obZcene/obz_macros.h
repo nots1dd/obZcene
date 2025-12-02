@@ -171,11 +171,16 @@
 /* =========================================================================
    DEBUG / ASSERTIONS
    ========================================================================= */
-#ifdef OBZ_DEBUG
 #include <assert.h>
-#define OBZ_ASSERT(x) assert(x)
-#else
-#define OBZ_ASSERT(x)
-#endif
+#define OBZ_ASSERT(cond, msg)                         \
+  do                                                  \
+  {                                                   \
+    if (!(cond))                                      \
+    {                                                 \
+      fprintf(stderr, "Assertion failed: %s\n", msg); \
+      assert(cond);                                   \
+    }                                                 \
+  } while (0)
+#define OBZ_STATIC_ASSERT(cond, msg) _Static_assert(cond, msg)
 
 #endif /* OBZ_API_MACROS_H */

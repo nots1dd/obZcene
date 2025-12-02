@@ -55,14 +55,14 @@ void obz_remove_timer(OBZ_Context* ctx, OBZ_TimerID id)
 /* ----- Alloc helpers ----- */
 static void* A_malloc(const OBZ_Allocator* a, size_t s)
 {
-  return a->alloc ? a->alloc(s) : malloc(s);
+  return a->alloc ? a->alloc(s) : obz_malloc(s);
 }
 static void A_free(const OBZ_Allocator* a, void* p)
 {
   if (a->free)
     a->free(p);
   else
-    free(p);
+    obz_free(p);
 }
 
 /* ----- Create ----- */
@@ -75,12 +75,7 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
     return NULL;
   }
 
-  OBZ_Context* ctx = alloc ? alloc->alloc(sizeof(*ctx)) : malloc(sizeof(*ctx));
-  if (!ctx)
-  {
-    OBZ_LOG_ERROR(NULL, "Failed to allocate OBZ_Context.");
-    return NULL;
-  }
+  OBZ_Context* ctx = alloc ? alloc->alloc(sizeof(*ctx)) : obz_malloc(sizeof(*ctx));
 
   ctx->cb             = *cb;
   ctx->alloc          = alloc ? *alloc : (OBZ_Allocator){0};
@@ -88,9 +83,9 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   ctx->quit           = OBZ_FALSE;
   ctx->last_time      = SDL_GetTicks();
   ctx->input.keyboard = SDL_GetKeyboardState(NULL);
-  ctx->log            = OBZ_logger_init(NULL, OBZ_LOG_TRACE);
+  ctx->log            = obz_logger_init(NULL, OBZ_LOG_TRACE);
   OBZ_LOG_INFO(ctx->log, "obZcene logger created successfully!");
-  OBZ_set_global_logger(ctx->log);
+  obz_set_global_logger(ctx->log);
   // will check for NULL internally
   ctx->renctx = obz_render_context_init(dims.width, dims.height);
   OBZ_LOG_INFO(ctx->log, "obZcene context created successfully!");
@@ -155,7 +150,7 @@ void obz_destroy(OBZ_Context* ctx)
   }
 
   OBZ_LOG_INFO(NULL, "obZcene context destroyed.");
-  OBZ_logger_destroy(ctx->log);
+  obz_logger_destroy(ctx->log);
 
   A_free(&ctx->alloc, ctx);
 }

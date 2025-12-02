@@ -1,6 +1,9 @@
 #ifndef OBZ_UTILS_DYNARRAY_H
 #define OBZ_UTILS_DYNARRAY_H
 
+#include "obz_macros.h"
+#include "obz_mem.h"
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -49,16 +52,14 @@ extern "C"
   }
 
   /* ----- Length (element count) ----- */
-  inline static obz_count_t obz_arr_size(const OBZ_DynArray* a) { return a->size; }
+  OBZ_FORCE_INLINE static obz_count_t obz_arr_size(const OBZ_DynArray* a) { return a->size; }
 
   /* ----- Ensure capacity for new_cap elements ----- */
   inline static void obz_arr_reserve(OBZ_DynArray* a, obz_count_t new_cap)
   {
     if (new_cap > a->capacity)
     {
-      void* p = realloc(a->obz_data, (obz_bytes_t)new_cap * a->elem_size);
-      if (!p)
-        abort();
+      void* p     = obz_realloc(a->obz_data, (obz_bytes_t)new_cap * a->elem_size);
       a->obz_data = p;
       a->capacity = new_cap;
     }
@@ -103,6 +104,17 @@ extern "C"
     return (const char*)a->obz_data + idx * a->elem_size;
   }
 
+  /* ----- Get pointer to the entire array data (read-only) ----- */
+  inline static const void* obz_arr_get_data_const(const OBZ_DynArray* a)
+  {
+    if (!a || !a->obz_data || a->size == 0)
+      return NULL;
+    return a->obz_data;
+  }
+
+  /* ----- Get typed pointer to entire array (read/write) ----- */
+#define obz_arr_get_data(a, T) ((T*)((a) && (a)->obz_data ? (a)->obz_data : NULL))
+
   /* ----- Set element at index ----- */
   inline static void obz_arr_set(OBZ_DynArray* a, obz_index_t idx, const void* elem)
   {
@@ -113,7 +125,7 @@ extern "C"
   }
 
   /* ----- Check whether initialized + contains elements ----- */
-  inline static int obz_arr_exists(const OBZ_DynArray* a)
+  inline static bool obz_arr_exists(const OBZ_DynArray* a)
   {
     return a && a->obz_data != NULL && a->size > 0;
   }

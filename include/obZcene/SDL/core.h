@@ -4,8 +4,6 @@
 #include "SDL/Camera/camera.h"
 #include "SDL/Render/render.h"
 #include "SDL/Scene/scene.h"
-#include "obz_log.h"
-#include "types.h"
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_image.h>
 #include <stddef.h>
@@ -36,23 +34,6 @@ extern "C"
     int width;
     int height;
   } OBZ_Dimensions;
-
-  /* ---------- Error codes ---------- */
-  typedef enum
-  {
-    OBZ_OK = 0,
-    OBZ_ERR_SDL,
-    OBZ_ERR_ALLOC,
-    OBZ_ERR_INVALID,
-    OBZ_ERR_RUNTIME
-  } OBZ_Result;
-
-  /* ---------- Bool ---------- */
-  typedef enum
-  {
-    OBZ_FALSE = 0,
-    OBZ_TRUE  = 1
-  } OBZ_Bool;
 
   /* ---------- Custom allocators ---------- */
   typedef void* (*OBZ_AllocFn)(size_t size);

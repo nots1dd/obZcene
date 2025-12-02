@@ -51,12 +51,12 @@ extern "C"
 #define DECLARE_OBZ_GLOBAL_LOGGER() OBZ_Logger* OBZ_GLOBAL_LOGGER = NULL;
 
   // Set the global logger
-  static inline void OBZ_set_global_logger(OBZ_Logger* logger) { OBZ_GLOBAL_LOGGER = logger; }
+  static inline void obz_set_global_logger(OBZ_Logger* logger) { OBZ_GLOBAL_LOGGER = logger; }
 
   // Get the global logger
-  static inline OBZ_Logger* OBZ_get_global_logger(void) { return OBZ_GLOBAL_LOGGER; }
+  static inline OBZ_Logger* __OBZ_get_global_logger(void) { return OBZ_GLOBAL_LOGGER; }
 
-  static inline long __obz_get_tid(void)
+  static inline long __OBZ_get_tid(void)
   {
 #ifdef SYS_gettid
     return (long)syscall(SYS_gettid);
@@ -65,7 +65,7 @@ extern "C"
 #endif
   }
 
-  static inline void OBZ_logger_print_info(OBZ_Logger* logger)
+  static inline void __OBZ_logger_print_info(OBZ_Logger* logger)
   {
     if (!logger)
     {
@@ -84,7 +84,7 @@ extern "C"
     fprintf(stdout, "Logger address : %p\n", (void*)logger);
 
     fprintf(stdout, "Process ID     : %d\n", getpid());
-    fprintf(stdout, "Thread ID      : %ld\n", __obz_get_tid());
+    fprintf(stdout, "Thread ID      : %ld\n", __OBZ_get_tid());
 
     fprintf(stdout, "Log level      : %s\n", lvl_names[logger->level]);
 
@@ -100,7 +100,7 @@ extern "C"
     pthread_mutex_unlock(&logger->lock);
   }
 
-  static inline OBZ_LogLevel OBZ_log_level_from_env(OBZ_LogLevel fallback)
+  static inline OBZ_LogLevel __OBZ_log_level_from_env(OBZ_LogLevel fallback)
   {
     const char* env = getenv("OBZ_LOG_LEVEL");
     if (!env)
@@ -125,13 +125,13 @@ extern "C"
     return fallback;
   }
 
-  static inline OBZ_Logger* OBZ_logger_init(const char* file_path, OBZ_LogLevel level)
+  static inline OBZ_Logger* obz_logger_init(const char* file_path, OBZ_LogLevel level)
   {
     OBZ_Logger* logger = (OBZ_Logger*)malloc(sizeof(OBZ_Logger));
     if (!logger)
       return NULL;
 
-    logger->level = OBZ_log_level_from_env(level);
+    logger->level = __OBZ_log_level_from_env(level);
     pthread_mutex_init(&logger->lock, NULL);
 
     if (file_path)
@@ -149,13 +149,13 @@ extern "C"
       logger->log_file = NULL;
     }
 
-    OBZ_logger_print_info(logger);
+    __OBZ_logger_print_info(logger);
 
     logger->use_color = 1; // Always use color on stdout
     return logger;
   }
 
-  static inline void OBZ_logger_destroy(OBZ_Logger* logger)
+  static inline void obz_logger_destroy(OBZ_Logger* logger)
   {
     if (!logger)
       return;
@@ -221,23 +221,23 @@ extern "C"
 // ----------------------------
 //
 // !!ONLY USE THESE MACROS!!
-#define OBZ_LOG_TRACE(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_TRACE, __FILE__, \
+#define OBZ_LOG_TRACE(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_TRACE, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
-#define OBZ_LOG_DEBUG(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_DEBUG, __FILE__, \
+#define OBZ_LOG_DEBUG(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_DEBUG, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
-#define OBZ_LOG_INFO(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_INFO, __FILE__, \
+#define OBZ_LOG_INFO(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_INFO, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
-#define OBZ_LOG_WARN(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_WARN, __FILE__, \
+#define OBZ_LOG_WARN(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_WARN, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
-#define OBZ_LOG_ERROR(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_ERROR, __FILE__, \
+#define OBZ_LOG_ERROR(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_ERROR, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
-#define OBZ_LOG_FATAL(logger, fmt, ...)                                                    \
-  __OBZ_logger_log((logger) ? (logger) : OBZ_get_global_logger(), OBZ_LOG_FATAL, __FILE__, \
+#define OBZ_LOG_FATAL(logger, fmt, ...)                                                      \
+  __OBZ_logger_log((logger) ? (logger) : __OBZ_get_global_logger(), OBZ_LOG_FATAL, __FILE__, \
                    __LINE__, fmt, ##__VA_ARGS__)
 
 #ifdef __cplusplus

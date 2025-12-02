@@ -8,6 +8,25 @@ extern "C"
 {
 #endif
 
+  /* ---------- Error codes ---------- */
+  typedef enum
+  {
+    OBZ_OK = 0,
+    OBZ_ERR_SDL,
+    OBZ_ERR_FILE,
+    OBZ_ERR_IMG,
+    OBZ_ERR_ALLOC,
+    OBZ_ERR_INVALID,
+    OBZ_ERR_RUNTIME
+  } OBZ_Result;
+
+  /* ---------- Bool ---------- */
+  typedef enum
+  {
+    OBZ_FALSE = 0,
+    OBZ_TRUE  = 1
+  } OBZ_Bool;
+
   typedef uint8_t  ui8;
   typedef uint16_t ui16;
   typedef uint32_t ui32;
@@ -17,6 +36,8 @@ extern "C"
   typedef int16_t i16;
   typedef int32_t i32;
   typedef int64_t i64;
+
+  typedef unsigned char uchar;
 
   /* Floating point */
   typedef float  f32;

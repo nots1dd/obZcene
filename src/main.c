@@ -1,3 +1,4 @@
+#include "Math/clamp.h"
 #include "SDL/core.h"
 #include "SDL/keymaps.h"
 #include "obZcene.h"
@@ -14,11 +15,9 @@ static void render(OBZ_Context* ctx)
   obz_scene_iter_begin(ctx->scene, &it);
   while (obz_scene_iter_next(ctx->scene, &it))
   {
-    OBZ_Mesh3D*       mesh_i       = it.mesh;
-    OBZ_MeshTextures* mesh_texture = obz_scene_get_mesh_textures(ctx->scene, it.index);
+    OBZ_Mesh3D* mesh_i = it.mesh;
 
-    obz_render_mesh_textured_camera(ctx->renctx, *it.pos, mesh_i, mesh_texture, it.rot->x,
-                                    it.rot->y, it.rot->z, ctx->cam);
+    obz_render_mesh_camera(ctx->renctx, *it.pos, mesh_i, it.rot->x, it.rot->y, it.rot->z, ctx->cam);
   }
 
   // CROSSHAIRS (CUSTOM!)
@@ -40,47 +39,48 @@ static void update(OBZ_Context* ctx, float dt)
   (void)in;
 }
 
-void move_camera_input(OBZ_Camera* cam, const ui8* keyboard, float speed)
+void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
 {
-  float f = 0, r = 0, u = 0;
+  Vec3 input = {0, 0, 0};
 
-  // WASD
   if (keyboard[KC_W])
-    f += 1;
+    input.z += 1;
   if (keyboard[KC_S])
-    f -= 1;
+    input.z -= 1;
   if (keyboard[KC_D])
-    r += 1;
+    input.x += 1;
   if (keyboard[KC_A])
-    r -= 1;
-
-  // Vertical
+    input.x -= 1;
   if (keyboard[KC_SPACE])
-    u += 1;
+    input.y += 1;
   if (keyboard[KC_BACKSPACE])
-    u -= 1;
+    input.y -= 1;
 
-  // Normalize direction
-  Vec3 forward = cam->direction;
-  obz_vec3_norm(forward);
+  if (obz_vec3_len(input) < 1e-6f)
+  {
+    cam->velocity = obz_vec3(0, 0, 0);
+    return;
+  }
 
-  // Build right and up vectors
-  Vec3 world_up = {0, 1, 0};
-  Vec3 rightv   = obz_vec3_cross(world_up, forward);
-  obz_vec3_norm(rightv);
+  // Normalize input to avoid diagonal speed boost
+  input = obz_vec3_norm(input);
 
-  Vec3 upv = obz_vec3_cross(forward, rightv);
+  Vec3 fwd   = obz_vec3_norm(cam->direction);
+  Vec3 right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 1, 0}, fwd));
+  if (obz_vec3_len(right) < 1e-6f)
+    right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 0, 1}, fwd));
+  Vec3 up = obz_vec3_cross(fwd, right);
 
   // Compute velocity
-  cam->velocity.x = forward.x * f * speed + rightv.x * r * speed + upv.x * u * speed;
-  cam->velocity.y = forward.y * f * speed + rightv.y * r * speed + upv.y * u * speed;
-  cam->velocity.z = forward.z * f * speed + rightv.z * r * speed + upv.z * u * speed;
+  cam->velocity = obz_vec3_add(
+    obz_vec3_add(obz_vec3_mulf(fwd, input.z * speed), obz_vec3_mulf(right, input.x * speed)),
+    obz_vec3_mulf(up, input.y * speed));
 }
 
-static void event(OBZ_Context* ctx, [[maybe_unused]] const void* ev)
+static void event(OBZ_Context* ctx, const void* ev)
 {
-  const ui8*      keyboard = obz_input(ctx)->keyboard;
   OBZ_InputState* in       = obz_input(ctx);
+  const ui8*      keyboard = in->keyboard;
 
   // Escape to quit
   if (keyboard[KC_ESCAPE])
@@ -95,27 +95,29 @@ static void event(OBZ_Context* ctx, [[maybe_unused]] const void* ev)
   int        dx = in->mouse_x - last_mx;
   int        dy = in->mouse_y - last_my;
 
-  if (in->mouse_left)
-  { // Only rotate when left mouse held
+  if (in->mouse_left) // Only rotate when left mouse held
+  {
     float sensitivity = 0.006f;
     ctx->cam.yaw += dx * sensitivity;
     ctx->cam.pitch -= dy * sensitivity;
 
     // Clamp pitch
-    if (ctx->cam.pitch > 1.5f)
-      ctx->cam.pitch = 1.5f;
-    if (ctx->cam.pitch < -1.5f)
-      ctx->cam.pitch = -1.5f;
+    ctx->cam.pitch = clampf(ctx->cam.pitch, -1.5f, 1.5f);
   }
 
   last_mx = in->mouse_x;
   last_my = in->mouse_y;
 
-  // Camera movement (faster with shift)
-  float speed = keyboard[KC_RSHIFT] ? 8.0f : 3.0f;
-  obz_camera_update_direction(&ctx->cam); // if yaw/pitch changed
-  move_camera_input(&ctx->cam, keyboard, speed);
-  obz_camera_update(&ctx->cam, 1); // applies cam->velocity
+  // Update camera forward direction after mouse look
+  obz_camera_update_direction(&ctx->cam);
+
+  // Camera movement
+  float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
+  camera_move(&ctx->cam, keyboard, speed);
+
+  // Apply movement (use real frame delta if available)
+  float dt = 0.016f; // ~60 FPS; replace with real frame delta if you have it
+  obz_camera_update(&ctx->cam, dt);
 }
 
 int main(int argc, char** argv)

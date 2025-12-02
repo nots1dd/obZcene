@@ -1,6 +1,7 @@
 #ifndef OBZ_SDL_MESH_H
 #define OBZ_SDL_MESH_H
 
+#include "Obj/parser.h"
 #include "Utils/vec.h"
 #include <stdlib.h>
 
@@ -9,95 +10,125 @@ extern "C"
 {
 #endif
 
-  // 3d stuff
   typedef struct
   {
-    Vec3* verts;
-    int   nverts;
-    int (*faces)[4]; // array of quads
-    int   nfaces;
-    Vec2* uvs;
+    Vec3* verts; // vertices
+    Vec2* uvs;   // texcoords
+    Vec3* norms; // normals
+
+    int* indices;      // vertex indices (triangles)
+    int* uv_indices;   // uv indices
+    int* norm_indices; // normal indices
+
+    OBZ_Material* materials;      // All materials loaded from .mtl
+    int           material_count; // # of materials
+
+    int* face_mtl_id; // length = noOfFaces
+                      // each triangle -> material index
+
+    /* ------------ COUNTS ------------ */
+    obz_count_t noOfVerts;
+    obz_count_t noOfUVs;
+    obz_count_t noOfNorms;
+    obz_count_t noOfFaces;
   } OBZ_Mesh3D;
 
-  /* ------------ FACE ALLOCATOR ------------ */
-  OBZ_FORCE_INLINE static int (*alloc_faces(int nfaces))[4]
+  inline static void obz_mesh_free_all(OBZ_Mesh3D* mesh)
   {
-    return malloc(sizeof(int[4]) * nfaces);
+    if (!mesh)
+      return;
+
+    obz_free(mesh->verts);
+    obz_free(mesh->uvs);
+    obz_free(mesh->norms);
+
+    obz_free(mesh->indices);
+    obz_free(mesh->uv_indices);
+    obz_free(mesh->norm_indices);
+
+    obz_free(mesh->face_mtl_id);
+    obz_free(mesh->materials);
+
+    mesh->noOfVerts      = 0;
+    mesh->noOfUVs        = 0;
+    mesh->noOfNorms      = 0;
+    mesh->noOfFaces      = 0;
+    mesh->material_count = 0;
   }
 
-  inline static void free_mesh(OBZ_Mesh3D* m)
+  inline static OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
   {
-    free(m->verts);
-    free(m->faces);
-    m->verts  = NULL;
-    m->faces  = NULL;
-    m->nverts = m->nfaces = 0;
-  }
+    if (!src)
+      return NULL;
 
-  inline static OBZ_Mesh3D make_wire_plane(float w, float h, int tilesX, int tilesY)
-  {
-    OBZ_Mesh3D m = {0};
+    int num_idx_entries = (int)src->faces.size;
+    if (num_idx_entries <= 0)
+      return NULL;
 
-    if (tilesX <= 0)
-      tilesX = 1;
-    if (tilesY <= 0)
-      tilesY = 1;
+    obz_count_t   num_tris = num_idx_entries / 3;
+    OBZ_ObjIndex* fbase    = obz_arr_get_data(&src->faces, OBZ_ObjIndex);
+    if (!fbase)
+      return NULL;
 
-    int vertsX = tilesX + 1;
-    int vertsY = tilesY + 1;
+    /* Allocate mesh */
+    OBZ_Mesh3D* out = obz_calloc(1, sizeof(OBZ_Mesh3D));
 
-    /* verts */
-    m.nverts = vertsX * vertsY;
-    m.verts  = malloc(sizeof(Vec3) * m.nverts);
-    if (!m.verts)
+    /* Basic counts */
+    out->noOfVerts = obz_arr_size(&src->positions);
+    out->noOfUVs   = obz_arr_size(&src->texcoords);
+    out->noOfNorms = obz_arr_size(&src->normals);
+    out->noOfFaces = num_tris;
+
+    if (out->noOfVerts)
+      out->verts = memcpy(obz_malloc(sizeof(Vec3) * out->noOfVerts), src->positions.obz_data,
+                          sizeof(Vec3) * out->noOfVerts);
+
+    if (out->noOfUVs)
+      out->uvs = memcpy(obz_malloc(sizeof(Vec2) * out->noOfUVs), src->texcoords.obz_data,
+                        sizeof(Vec2) * out->noOfUVs);
+
+    if (out->noOfNorms)
+      out->norms = memcpy(obz_malloc(sizeof(Vec3) * out->noOfNorms), src->normals.obz_data,
+                          sizeof(Vec3) * out->noOfNorms);
+
+    /* Allocate index buffers */
+    size_t idx_count  = num_tris * 3;
+    out->indices      = obz_malloc(sizeof(int) * idx_count);
+    out->uv_indices   = obz_malloc(sizeof(int) * idx_count);
+    out->norm_indices = obz_malloc(sizeof(int) * idx_count);
+
+    out->materials      = NULL;
+    out->material_count = obz_arr_size(&src->materials);
+
+    if (out->material_count > 0)
+      out->materials = memcpy(obz_malloc(sizeof(OBZ_Material) * out->material_count),
+                              src->materials.obz_data, sizeof(OBZ_Material) * out->material_count);
+
+    out->face_mtl_id = obz_malloc(sizeof(int) * out->noOfFaces);
+    memcpy(out->face_mtl_id, src->face_mtl_id.obz_data, sizeof(int) * out->noOfFaces);
+
+    /* Fill triangles */
+    for (obz_count_t tri = 0; tri < num_tris; ++tri)
     {
-      m.nverts = 0;
-      return m;
+      int          base = tri * 3;
+      OBZ_ObjIndex a    = fbase[base + 0];
+      OBZ_ObjIndex b    = fbase[base + 1];
+      OBZ_ObjIndex c    = fbase[base + 2];
+
+      out->indices[base + 0] = (a.v > 0) ? a.v - 1 : -1;
+      out->indices[base + 1] = (b.v > 0) ? b.v - 1 : -1;
+      out->indices[base + 2] = (c.v > 0) ? c.v - 1 : -1;
+
+      out->uv_indices[base + 0] = (a.vt > 0) ? a.vt - 1 : -1;
+      out->uv_indices[base + 1] = (b.vt > 0) ? b.vt - 1 : -1;
+      out->uv_indices[base + 2] = (c.vt > 0) ? c.vt - 1 : -1;
+
+      out->norm_indices[base + 0] = (a.vn > 0) ? a.vn - 1 : -1;
+      out->norm_indices[base + 1] = (b.vn > 0) ? b.vn - 1 : -1;
+      out->norm_indices[base + 2] = (c.vn > 0) ? c.vn - 1 : -1;
     }
 
-    float dx  = w / tilesX;
-    float dy  = h / tilesY;
-    int   idx = 0;
-    for (int iy = 0; iy < vertsY; iy++)
-    {
-      float y = -h * 0.5f + iy * dy;
-      for (int ix = 0; ix < vertsX; ix++)
-      {
-        float x        = -w * 0.5f + ix * dx;
-        m.verts[idx++] = (Vec3){x, y, 0.0f};
-      }
-    }
-
-    /* faces (quads) */
-    m.nfaces = tilesX * tilesY;
-    m.faces  = malloc(sizeof(int[4]) * m.nfaces);
-    if (!m.faces)
-    {
-      free(m.verts);
-      m.verts  = NULL;
-      m.nverts = 0;
-      m.nfaces = 0;
-      return m;
-    }
-
-    int f = 0;
-    for (int iy = 0; iy < tilesY; iy++)
-    {
-      for (int ix = 0; ix < tilesX; ix++)
-      {
-        int v0        = iy * vertsX + ix;
-        int v1        = v0 + 1;
-        int v2        = v0 + vertsX + 1;
-        int v3        = v0 + vertsX;
-        m.faces[f][0] = v0;
-        m.faces[f][1] = v1;
-        m.faces[f][2] = v2;
-        m.faces[f][3] = v3;
-        f++;
-      }
-    }
-
-    return m;
+    return out;
   }
 
 #ifdef __cplusplus

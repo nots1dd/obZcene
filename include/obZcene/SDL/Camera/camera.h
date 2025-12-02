@@ -5,6 +5,8 @@
 #include "Utils/vec.h"
 #include <stdbool.h>
 
+#define MAX_PITCH (89.0f * (M_PI / 180.0f)) // prevent gimbal lock
+
 #ifdef __cplusplus
 extern "C"
 {

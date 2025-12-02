@@ -1,9 +1,7 @@
 #ifndef OBZ_SDL_SCENE_H
 #define OBZ_SDL_SCENE_H
 
-#include "SDL/Colors/colors.h"
 #include "SDL/Mesh/mesh.h"
-#include "SDL/Textures/textures.h"
 #include "obz_macros.h"
 #include <stdint.h>
 
@@ -23,7 +21,6 @@ extern "C"
     Vec3*       pos;
     Rot3*       rot;
     Rot3*       rotSpeed;
-    OBZ_Color*  color;
   } OBZ_SceneEntry;
 
   /* ---- Creation / Destruction ---- */
@@ -36,10 +33,6 @@ extern "C"
 
   /* ---- Update ---- */
   OBZ_API void obz_scene_update(OBZ_Scene* s, float dt);
-
-  /* ---- Textures ---- */
-  OBZ_API void obz_scene_set_texture(OBZ_Scene* s, int mesh_id, OBZ_Texture* tex, int slot);
-  OBZ_API OBZ_MeshTextures* obz_scene_get_mesh_textures(OBZ_Scene* s, int mesh_id);
 
   /* ---- Iteration ---- */
   OBZ_API void obz_scene_iter_begin(OBZ_Scene* s, OBZ_SceneEntry* e);

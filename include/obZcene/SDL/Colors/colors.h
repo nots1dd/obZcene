@@ -1,7 +1,7 @@
 #ifndef OBZ_COLORS_H
 #define OBZ_COLORS_H
 
-#include "types.h"
+#include "obz_types.h"
 #include <stdint.h>
 
 #ifdef __cplusplus

@@ -22,6 +22,11 @@ OBZ_API Vec2 obz_vec2_sub(Vec2 a, Vec2 b);
 OBZ_API Vec2 obz_vec2_mul(Vec2 a, Vec2 b);
 OBZ_API Vec2 obz_vec2_div(Vec2 a, Vec2 b);
 
+OBZ_API Vec2 obz_vec2_addf(Vec2 v, float s);
+OBZ_API Vec2 obz_vec2_subf(Vec2 v, float s);
+OBZ_API Vec2 obz_vec2_mulf(Vec2 v, float s);
+OBZ_API Vec2 obz_vec2_divf(Vec2 v, float s);
+
 OBZ_API Vec2  obz_vec2_scale(Vec2 v, float s);
 OBZ_API float obz_vec2_dot(Vec2 a, Vec2 b);
 OBZ_API float obz_vec2_len(Vec2 v);
@@ -42,6 +47,12 @@ OBZ_API Vec3  obz_vec3_cross(Vec3 a, Vec3 b);
 OBZ_API Vec3 obz_vec3_rotate_x(Vec3 v, float rad);
 OBZ_API Vec3 obz_vec3_rotate_y(Vec3 v, float rad);
 OBZ_API Vec3 obz_vec3_rotate_z(Vec3 v, float rad);
+
+/* scalar */
+OBZ_API Vec3 obz_vec3_addf(Vec3 v, float s);
+OBZ_API Vec3 obz_vec3_subf(Vec3 v, float s);
+OBZ_API Vec3 obz_vec3_mulf(Vec3 v, float s);
+OBZ_API Vec3 obz_vec3_divf(Vec3 v, float s);
 
 OBZ_API float obz_vec3_len(Vec3 v);
 OBZ_API Vec3  obz_vec3_norm(Vec3 v);

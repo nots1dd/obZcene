@@ -32,6 +32,15 @@ Vec3 obz_vec3_sub(Vec3 a, Vec3 b) { return (Vec3){a.x - b.x, a.y - b.y, a.z - b.
 Vec3 obz_vec3_mul(Vec3 a, Vec3 b) { return (Vec3){a.x * b.x, a.y * b.y, a.z * b.z}; }
 Vec3 obz_vec3_div(Vec3 a, Vec3 b) { return (Vec3){a.x / b.x, a.y / b.y, a.z / b.z}; }
 
+/* scalar */
+Vec2 obz_vec2_addf(Vec2 v, float s) { return (Vec2){v.x + s, v.y + s}; }
+
+Vec2 obz_vec2_subf(Vec2 v, float s) { return (Vec2){v.x - s, v.y - s}; }
+
+Vec2 obz_vec2_mulf(Vec2 v, float s) { return (Vec2){v.x * s, v.y * s}; }
+
+Vec2 obz_vec2_divf(Vec2 v, float s) { return (Vec2){v.x / s, v.y / s}; }
+
 Vec3  obz_vec3_scale(Vec3 v, float s) { return (Vec3){v.x * s, v.y * s, v.z * s}; }
 float obz_vec3_dot(Vec3 a, Vec3 b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
@@ -57,6 +66,14 @@ Vec3 obz_vec3_rotate_z(Vec3 v, float rad)
   float c = cosf(rad), s = sinf(rad);
   return (Vec3){v.x * c - v.y * s, v.x * s + v.y * c, v.z};
 }
+
+Vec3 obz_vec3_addf(Vec3 v, float s) { return (Vec3){v.x + s, v.y + s, v.z + s}; }
+
+Vec3 obz_vec3_subf(Vec3 v, float s) { return (Vec3){v.x - s, v.y - s, v.z - s}; }
+
+Vec3 obz_vec3_mulf(Vec3 v, float s) { return (Vec3){v.x * s, v.y * s, v.z * s}; }
+
+Vec3 obz_vec3_divf(Vec3 v, float s) { return (Vec3){v.x / s, v.y / s, v.z / s}; }
 
 float obz_vec3_len(Vec3 v) { return OBZ__SIMD_sqrt_scalar_sse(v.x * v.x + v.y * v.y + v.z * v.z); }
 
