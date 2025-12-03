@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include <string.h>
 
+OBZ_BEGIN_CPP_DECLS
+
 /* Extract directory portion of a path (returns a malloc'd string, caller must free).
    If no directory, returns strdup(".") */
 inline static char* __OBZ_dirname_alloc(const char* path)
@@ -101,5 +103,7 @@ inline static int __OBZ_atoi_ptr(const char** ptr)
   *ptr = p;
   return v * sign;
 }
+
+OBZ_END_CPP_DECLS
 
 #endif

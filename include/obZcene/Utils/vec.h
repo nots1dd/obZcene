@@ -4,6 +4,8 @@
 #include "Math/simd/x86/sqrt.h"
 #include "obz_macros.h"
 
+OBZ_BEGIN_CPP_DECLS
+
 typedef struct
 {
   float x, y;
@@ -57,5 +59,7 @@ OBZ_API Vec3 obz_vec3_divf(Vec3 v, float s);
 OBZ_API float obz_vec3_len(Vec3 v);
 OBZ_API Vec3  obz_vec3_norm(Vec3 v);
 OBZ_API Vec3  obz_vec3_lerp(Vec3 a, Vec3 b, float t);
+
+OBZ_END_CPP_DECLS
 
 #endif

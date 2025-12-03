@@ -12,6 +12,18 @@
 #define OBZ_NO_INLINE
 #endif
 
+// CPP DECL
+
+#ifdef __cplusplus
+#define OBZ_BEGIN_CPP_DECLS \
+  extern "C"                \
+  {
+#define OBZ_END_CPP_DECLS }
+#else
+#define OBZ_BEGIN_CPP_DECLS
+#define OBZ_END_CPP_DECLS
+#endif
+
 #define OBZ_STRINGIFY_(x) #x
 #define OBZ_STRINGIFY(x)  OBZ_STRINGIFY_(x)
 

@@ -9,25 +9,20 @@
 #define OBZ_MAX_MESH_TEXTURES 16
 #define OBZ_MAX_MESH_FACES    128
 
-#ifdef __cplusplus
-extern "C"
+OBZ_BEGIN_CPP_DECLS
+
+typedef struct
 {
-#endif
+  unsigned int id;
+  int          width;
+  int          height;
+  OBZ_channel* pixels; // RGBA pixel data
+  OBZ_Color    diffuse;
+} OBZ_Texture;
 
-  typedef struct
-  {
-    unsigned int id;
-    int          width;
-    int          height;
-    OBZ_channel* pixels; // RGBA pixel data
-    OBZ_Color    diffuse;
-  } OBZ_Texture;
+OBZ_API OBZ_Texture* obz_tex_load_png(const char* path);
+OBZ_API void         obz_tex_free(OBZ_Texture* tex);
 
-  OBZ_API OBZ_Texture* obz_tex_load_png(const char* path);
-  OBZ_API void         obz_tex_free(OBZ_Texture* tex);
-
-#ifdef __cplusplus
-}
-#endif
+OBZ_END_CPP_DECLS
 
 #endif /* OBZ_SDL_TEXTURE_H */

@@ -273,7 +273,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
     int mid = mesh->face_mtl_id ? mesh->face_mtl_id[t] : -1;
     if (mid >= 0 && mid < mesh->material_count)
     {
-      OBZ_Material* M = &mesh->materials[mid];
+      OBZ_ObjMtl* M = &mesh->materials[mid];
       if (M->map_Kd)
         tex = M->map_Kd; // texture
       diffuse.r = __OBZ_clampf_to_channel(M->Kd.x);

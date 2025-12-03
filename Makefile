@@ -3,7 +3,7 @@
 ###############################################################################
 # Project configuration (user overridable)
 ###############################################################################
-TARGET        ?= main
+TARGET        ?= obZcene
 BUILD         ?= release
 PREFIX        ?= /usr/local
 VERBOSE       ?= 0
@@ -66,7 +66,10 @@ SRC := \
     src/SDL/Textures/textures.c \
     src/SDL/Camera/camera.c \
 		src/SDL/Scene/scene.c \
+		src/SDL/Mesh/mesh.c \
     src/Utils/vec.c \
+		src/Obj/mtl.c \
+		src/Obj/parser.c
 
 OBJ  := $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC))
 DEPS := $(patsubst %.c,$(DEP_DIR)/%.d,$(SRC))
@@ -143,7 +146,7 @@ $(BIN_DIR):
 # Build objects
 $(OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	@mkdir -p $(dir $(DEP_DIR)/$*.d)
+	@mkdir -p $(dir $(DEP_DIR)/$(dir $*.d))
 	$(ECHO_CC_CMD)
 	$(COMPILE)
 
