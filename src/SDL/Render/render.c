@@ -1,11 +1,13 @@
 #include "SDL/Render/render.h"
 #include "Math/clamp.h"
 #include "Math/minimax.h"
+#include "Utils/arena_allocator.h"
 #include "obz_log.h"
 #include "obz_mem.h"
 #include "obz_types.h"
-#include <alloca.h>
 #include <math.h>
+
+static const float INV_255 = 0.00392156862745098f; // 1 / 255
 
 OBZ_RendererContext* obz_render_context_init(int width, int height)
 {
@@ -20,8 +22,8 @@ OBZ_RendererContext* obz_render_context_init(int width, int height)
   renctx->width  = width;
   renctx->height = height;
 
-  // count is just size_t alias; easy to understand when calling obz_arr apis
-  const obz_count_t pixel_count = (size_t)(width * height);
+  // obz_count_t is alias to size_t; easier to understand when calling `obz_arr_` API
+  const obz_count_t pixel_count = (width * height);
 
   renctx->framebuffer = obz_malloc(pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
   if (!renctx->framebuffer)
@@ -58,16 +60,15 @@ void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color)
 {
   const int n = ctx->width * ctx->height;
 
-  // Clear framebuffer
+  // clear framebuffer
   for (int i = 0; i < n; i++)
     ctx->framebuffer[i] = clear_color;
 
-  // Clear z-buffer if it exists
+  // clear zbuf if it exists
   const float z_clear = OBZ_Z_BUF_CLEAR;
   __OBZ_render_clear_zbuf(&ctx->zbuffer, n, &z_clear);
 }
 
-// Put pixel with depth test
 void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel color)
 {
   if (x < 0 || x >= ctx->width || y < 0 || y >= ctx->height)
@@ -75,16 +76,14 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel
 
   int idx = y * ctx->width + x;
 
-  if (obz_arr_exists(&ctx->zbuffer))
+  // Get raw pointer once instead of function calls
+  float* zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
+
+  if (zb)
   {
-    auto p_z = (float*)obz_arr_get(&ctx->zbuffer, idx);
-    if (!p_z)
+    if (z > zb[idx])
       return;
-
-    if (z > *p_z)
-      return;
-
-    obz_arr_set(&ctx->zbuffer, idx, &z);
+    zb[idx] = z;
   }
 
   ctx->framebuffer[idx] = color;
@@ -105,31 +104,41 @@ inline static void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int
   *w2                = 1.0f - *w0 - *w1;
 }
 
-// Perspective UV interpolation
-static Vec2 __OBZ_interp_uv_persp(Vec3 v0, Vec3 v1, Vec3 v2, Vec2 uv0, Vec2 uv1, Vec2 uv2, float w0,
-                                  float w1, float w2)
+// Pre-computed 1/z interpolation
+static Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float one_by_z1,
+                                  float one_by_z2, float w0, float w1, float w2)
 {
-  // Divide UV by vertex depth
-  const float u0  = uv0.x / v0.z;
-  const float v0_ = uv0.y / v0.z;
-  const float u1  = uv1.x / v1.z;
-  const float v1_ = uv1.y / v1.z;
-  const float u2  = uv2.x / v2.z;
-  const float v2_ = uv2.y / v2.z;
+  // Divide UV by vertex depth using pre-computed reciprocals
+  const float u0  = uv0.x * one_by_z0;
+  const float v0_ = uv0.y * one_by_z0;
+  const float u1  = uv1.x * one_by_z1;
+  const float v1_ = uv1.y * one_by_z1;
+  const float u2  = uv2.x * one_by_z2;
+  const float v2_ = uv2.y * one_by_z2;
 
   // Interpolate
   float u = w0 * u0 + w1 * u1 + w2 * u2;
   float v = w0 * v0_ + w1 * v1_ + w2 * v2_;
 
   // Interpolate 1/z
-  float iz = w0 / v0.z + w1 / v1.z + w2 / v2.z;
+  float iz = 1.0f / (w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2);
 
-  Vec2 uv = {u / iz, v / iz};
+  Vec2 uv = {u * iz, v * iz};
 
   return uv;
 }
 
-inline static OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffuse)
+bool __OBZ_backface_cull_3d(Vec3 a, Vec3 b, Vec3 c)
+{
+  Vec3 ab = obz_vec3_sub(b, a);
+  Vec3 ac = obz_vec3_sub(c, a);
+
+  Vec3 N = obz_vec3_cross(ab, ac);
+
+  return (N.z >= 0); // camera looks +Z
+}
+
+static OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffuse)
 {
   if (!tex || !tex->pixels)
     return __OBZ_pack_color_channels(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
@@ -138,38 +147,43 @@ inline static OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OB
   float        v  = obz_clampf01(uv.y);
   auto         tx = (int)(u * (tex->width - 1));
   auto         ty = (int)((1.0f - v) * (tex->height - 1));
-  OBZ_channel* p  = tex->pixels + 4 * (ty * tex->width + tx); // ABGR
+  OBZ_channel* p  = tex->pixels + 4 * (ty * tex->width + tx);
 
-  auto r = (OBZ_channel)((p[0] * diffuse.r) / 255);
-  auto g = (OBZ_channel)((p[1] * diffuse.g) / 255);
-  auto b = (OBZ_channel)((p[2] * diffuse.b) / 255);
+  // Use multiply by reciprocal instead of division
+  auto r = (OBZ_channel)((p[0] * diffuse.r) * INV_255);
+  auto g = (OBZ_channel)((p[1] * diffuse.g) * INV_255);
+  auto b = (OBZ_channel)((p[2] * diffuse.b) * INV_255);
   auto a = p[3];
 
   return __OBZ_pack_color_channels(r, g, b, a);
 }
 
 static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3 v0, Vec3 v1, Vec3 v2, Vec2 uv0,
-                                  Vec2 uv1, Vec2 uv2, OBZ_Texture* tex, OBZ_Color diffuse,
+                                  Vec2 uv1, Vec2 uv2, float one_by_z0, float one_by_z1,
+                                  float one_by_z2, OBZ_Texture* tex, OBZ_Color diffuse,
                                   int use_color_only)
 {
   if (!ctx)
     return;
 
-  float dx1 = v1.x - v0.x;
-  float dy1 = v1.y - v0.y;
-  float dx2 = v2.x - v0.x;
-  float dy2 = v2.y - v0.y;
-  if ((dx1 * dy2 - dx2 * dy1) <= 0.0f)
-    return;
-
+  // Compute bounding box of the triangle
   int minx = obz_clamp_floor_to_int(obz_minf(obz_minf(v0.x, v1.x), v2.x), 0, ctx->width - 1);
   int maxx = obz_clamp_ceil_to_int(obz_maxf(obz_maxf(v0.x, v1.x), v2.x), 0, ctx->width - 1);
   int miny = obz_clamp_floor_to_int(obz_minf(obz_minf(v0.y, v1.y), v2.y), 0, ctx->height - 1);
   int maxy = obz_clamp_ceil_to_int(obz_maxf(obz_maxf(v0.y, v1.y), v2.y), 0, ctx->height - 1);
+
   if (minx > maxx || miny > maxy)
     return;
 
-  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
+  // zbuffer pointer once
+  float* zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
+
+  // Pre-compute color for solid-color triangles
+  OBZ_pixel solid_color = 0;
+  if (use_color_only || !tex || !tex->pixels)
+  {
+    solid_color = __OBZ_pack_color_channels(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+  }
 
   for (int y = miny; y <= maxy; ++y)
   {
@@ -177,31 +191,63 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3 v0, Vec3 v1, Ve
     {
       float w0, w1, w2;
       __OBZ_barycentric_persp(v0, v1, v2, x, y, &w0, &w1, &w2);
+
+      // outside triangle
       if (w0 < 0 || w1 < 0 || w2 < 0)
         continue;
 
       float z   = w0 * v0.z + w1 * v1.z + w2 * v2.z;
       int   idx = y * ctx->width + x;
 
-      if (zb && z > zb[idx])
-        continue;
+      // Depth test BEFORE texture sampling
       if (zb)
+      {
+        if (z > zb[idx])
+          continue;
         zb[idx] = z;
+      }
 
       OBZ_pixel out;
+
+      // texture sampling only after depth test passes
       if (use_color_only || !tex || !tex->pixels)
       {
-        out = __OBZ_pack_color_channels(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+        out = solid_color;
       }
       else
       {
-        Vec2 uv = __OBZ_interp_uv_persp(v0, v1, v2, uv0, uv1, uv2, w0, w1, w2);
+        Vec2 uv = __OBZ_interp_uv_persp(uv0, uv1, uv2, one_by_z0, one_by_z1, one_by_z2, w0, w1, w2);
         out     = __OBZ_sample_texture(tex, uv, diffuse);
       }
 
       ctx->framebuffer[idx] = out;
     }
   }
+}
+
+bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int width, int height)
+{
+  // All vertices left of screen
+  if (p0.x < 0 && p1.x < 0 && p2.x < 0)
+    return true;
+
+  // All vertices right of screen
+  if (p0.x >= width && p1.x >= width && p2.x >= width)
+    return true;
+
+  // All vertices above screen
+  if (p0.y < 0 && p1.y < 0 && p2.y < 0)
+    return true;
+
+  // All vertices below screen
+  if (p0.y >= height && p1.y >= height && p2.y >= height)
+    return true;
+
+  // All vertices behind camera (negative z in view space typically)
+  if (p0.z <= 0 && p1.z <= 0 && p2.z <= 0)
+    return true;
+
+  return false;
 }
 
 void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh, float pitch,
@@ -215,10 +261,13 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
   if (nverts == 0 || nfaces == 0)
     return;
 
-  Vec3* verts_world  = obz_malloc(nverts * sizeof(Vec3));
-  Vec3* verts_screen = obz_malloc(nverts * sizeof(Vec3));
+  Vec3* verts_world =
+    obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3), OBZ_ARENA_DEFAULT_ALIGNMENT);
+  Vec3* verts_screen =
+    obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3), OBZ_ARENA_DEFAULT_ALIGNMENT);
+  float* one_by_z =
+    obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(float), OBZ_ARENA_DEFAULT_ALIGNMENT);
 
-  /* Precompute rotation */
   float cp = cosf(pitch), sp = sinf(pitch);
   float cy = cosf(yaw), sy = sinf(yaw);
   float cr = cosf(roll), sr = sinf(roll);
@@ -235,22 +284,30 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
     float x3 = x1 * cr - y2 * sr;
     float y3 = x1 * sr + y2 * cr;
 
-    Vec3 world     = {x3 + pos.x, y3 + pos.y, z2 + pos.z};
+    Vec3 world = {x3 + pos.x, y3 + pos.y, z2 + pos.z};
+
     verts_world[i] = world;
 
     int sx, syi;
-
     obz_project_camera(world, cam, &sx, &syi, ctx->width, ctx->height);
+
     verts_screen[i] = (Vec3){(float)sx, (float)syi, world.z};
+
+    // Pre-compute 1/z for perspective correction (FIX #5)
+    one_by_z[i] = (world.z != 0.0f) ? (1.0f / world.z) : 0.0f;
   }
 
   /* Fallback 64% grey texture and white diffuse */
-  static OBZ_channel fallback_px[4]   = {160, 160, 160, 255};
-  static OBZ_Texture fallback_tex     = {.pixels = fallback_px, .width = 1, .height = 1};
-  static OBZ_Color   fallback_diffuse = {255, 255, 255, 255};
+  static OBZ_channel     fallback_px[4]   = {160, 160, 160, 255};
+  static OBZ_Texture     fallback_tex     = {.pixels = fallback_px, .width = 1, .height = 1};
+  static const OBZ_Color fallback_diffuse = COLOR_WHITE;
 
   int* vidx = mesh->indices;
   int* uidx = mesh->uv_indices;
+
+  int          current_material_id = -2; // -2 means no material set yet
+  OBZ_Texture* current_tex         = &fallback_tex;
+  OBZ_Color    current_diffuse     = fallback_diffuse;
 
   for (int t = 0; t < nfaces; t++)
   {
@@ -262,28 +319,51 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
         (unsigned)i2 >= (unsigned)nverts)
       continue;
 
+    // Back-face culling in world space (NOT WORKING)
+    // if (__OBZ_backface_cull_3d(verts_world[i0], verts_world[i1], verts_world[i2]))
+    //   continue;
+
     Vec3 p0 = verts_screen[i0];
     Vec3 p1 = verts_screen[i1];
     Vec3 p2 = verts_screen[i2];
 
-    /* Material / texture */
-    OBZ_Texture* tex     = &fallback_tex;
-    OBZ_Color    diffuse = fallback_diffuse;
+    // Early degenerate check before material/UV setup
+    float dx1 = p1.x - p0.x;
+    float dy1 = p1.y - p0.y;
+    float dx2 = p2.x - p0.x;
+    float dy2 = p2.y - p0.y;
+    if ((dx1 * dy2 - dy1 * dx2) <= 0.0f)
+      continue;
+
+    // Early rejection for off-screen triangles (NOT WORKING)
+    // if (__OBZ_triangle_offscreen(p0, p1, p2, ctx->width, ctx->height))
+    //   continue;
 
     int mid = mesh->face_mtl_id ? mesh->face_mtl_id[t] : -1;
-    if (mid >= 0 && mid < mesh->material_count)
+
+    // Only update material if it changed
+    if (mid != current_material_id)
     {
-      OBZ_ObjMtl* M = &mesh->materials[mid];
-      if (M->map_Kd)
-        tex = M->map_Kd; // texture
-      diffuse.r = __OBZ_clampf_to_channel(M->Kd.x);
-      diffuse.g = __OBZ_clampf_to_channel(M->Kd.y);
-      diffuse.b = __OBZ_clampf_to_channel(M->Kd.z);
-      diffuse.a = 255;
+      current_material_id = mid;
+
+      if (mid >= 0 && mid < mesh->material_count)
+      {
+        OBZ_ObjMtl* M     = &mesh->materials[mid];
+        current_tex       = M->map_Kd ? M->map_Kd : &fallback_tex;
+        current_diffuse.r = __OBZ_clampf_to_channel(M->Kd.x);
+        current_diffuse.g = __OBZ_clampf_to_channel(M->Kd.y);
+        current_diffuse.b = __OBZ_clampf_to_channel(M->Kd.z);
+        current_diffuse.a = 255;
+      }
+      else
+      {
+        current_tex     = &fallback_tex;
+        current_diffuse = fallback_diffuse;
+      }
     }
 
     /* UVs */
-    Vec2 uv0 = {0, 0}, uv1 = {0, 0}, uv2 = {0, 0};
+    static Vec2 uv0 = {0, 0}, uv1 = {0, 0}, uv2 = {0, 0};
     if (mesh->uvs && mesh->uv_indices)
     {
       int ti0 = uidx[t * 3 + 0];
@@ -299,6 +379,8 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
         uv2 = mesh->uvs[ti2];
     }
 
-    __OBZ_render_triangle(ctx, p0, p1, p2, uv0, uv1, uv2, tex, diffuse, 0);
+    // Pass pre-computed 1/z values
+    __OBZ_render_triangle(ctx, p0, p1, p2, uv0, uv1, uv2, one_by_z[i0], one_by_z[i1], one_by_z[i2],
+                          current_tex, current_diffuse, 0);
   }
 }

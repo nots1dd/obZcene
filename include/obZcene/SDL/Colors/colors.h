@@ -7,6 +7,9 @@
 
 OBZ_BEGIN_CPP_DECLS
 
+// use this for compile time color packing
+#define OBZ_PACK_COLOR_COMPTIME(c) (((c).a << 24) | ((c).b << 16) | ((c).g << 8) | (c).r)
+
 /* ---------- Colors ---------- */
 
 // channel is ui8
@@ -86,6 +89,9 @@ static const OBZ_Color COLOR_NEON_PINK  = {255, 20, 147, 255};
 static const OBZ_Color COLOR_SMOKE_GRAY = {105, 105, 105, 255};
 static const OBZ_Color COLOR_CHARCOAL   = {54, 69, 79, 255};
 static const OBZ_Color COLOR_JET_BLACK  = {10, 10, 10, 255};
+
+static const OBZ_pixel COLOR_WHITE_PIXELS = OBZ_PACK_COLOR_COMPTIME(COLOR_WHITE);
+static const OBZ_pixel COLOR_BLACK_PIXELS = OBZ_PACK_COLOR_COMPTIME(COLOR_BLACK);
 
 OBZ_END_CPP_DECLS
 

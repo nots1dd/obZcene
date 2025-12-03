@@ -27,23 +27,26 @@ inline static void print_camera_debug(const OBZ_Camera* cam)
 }
 
 inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int length, int gap,
-                                  OBZ_pixel color)
+                                  OBZ_Color color)
 {
+
+  OBZ_pixel pixel_color = __OBZ_pack_color(color);
+
   // horizontal left
   for (int x = cx - length; x < cx - gap; x++)
-    obz_render_pixel(rc, x, cy, 0, color);
+    obz_render_pixel(rc, x, cy, 0, pixel_color);
 
   // horizontal right
   for (int x = cx + gap; x <= cx + length; x++)
-    obz_render_pixel(rc, x, cy, 0, color);
+    obz_render_pixel(rc, x, cy, 0, pixel_color);
 
   // vertical top
   for (int y = cy - length; y < cy - gap; y++)
-    obz_render_pixel(rc, cx, y, 0, color);
+    obz_render_pixel(rc, cx, y, 0, pixel_color);
 
   // vertical bottom
   for (int y = cy + gap; y <= cy + length; y++)
-    obz_render_pixel(rc, cx, y, 0, color);
+    obz_render_pixel(rc, cx, y, 0, pixel_color);
 }
 
 inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)

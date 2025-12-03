@@ -6,10 +6,9 @@
 DECLARE_OBZ_GLOBAL_LOGGER();
 
 // you dont have to modify main.c AT ALL. Check out obZscene.h!
-
 static void render(OBZ_Context* ctx)
 {
-  obz_render_clear(ctx->renctx, 0);
+  obz_render_clear(ctx->renctx, ctx->renctx->background_color);
 
   OBZ_SceneEntry it;
   obz_scene_iter_begin(ctx->scene, &it);
@@ -21,9 +20,9 @@ static void render(OBZ_Context* ctx)
   }
 
   // CROSSHAIRS (CUSTOM!)
-  draw_crosshair(ctx->renctx, W / 2, H / 2, 20, 2, 0xFFFFFF);
+  draw_crosshair(ctx->renctx, W / 2, H / 2, 20, 2, COLOR_GOLD);
 
-  //OBZ_LOG_TRACE(ctx->log, "Frame rendered.");
+  obz_arena_reset(ctx->renctx->arena_alloc);
 }
 
 static void update(OBZ_Context* ctx, float dt)
@@ -34,7 +33,7 @@ static void update(OBZ_Context* ctx, float dt)
   obz_scene_update(ctx->scene, dt);
   obz_camera_update(&ctx->cam, dt);
 
-  print_camera_debug(&ctx->cam);
+  //print_camera_debug(&ctx->cam);
 
   /* input handling lives here */
   (void)dt;
@@ -88,6 +87,8 @@ static void event(OBZ_Context* ctx, const void* ev)
 {
   OBZ_InputState* in       = obz_input(ctx);
   const ui8*      keyboard = in->keyboard;
+  static bool     prev_b   = false;
+  bool            now_b    = keyboard[KC_B];
 
   // Escape to quit
   if (keyboard[KC_ESCAPE])
@@ -96,6 +97,17 @@ static void event(OBZ_Context* ctx, const void* ev)
     obz_request_quit(ctx);
     return;
   }
+  // pressing B
+  if (now_b && !prev_b)
+  {
+    // key just pressed once
+    if (ctx->renctx->background_color == COLOR_WHITE_PIXELS)
+      ctx->renctx->background_color = COLOR_BLACK_PIXELS;
+    else
+      ctx->renctx->background_color = COLOR_WHITE_PIXELS;
+  }
+
+  prev_b = now_b;
 
   // Mouse look
   static int last_mx = 400, last_my = 300;

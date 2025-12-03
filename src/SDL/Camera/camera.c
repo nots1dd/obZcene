@@ -95,7 +95,7 @@ void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw
   }
 
   // Perspective projection
-  float aspect = (float)sw / (float)sh;
+  auto  aspect = (float)(sw / sh);
   float f      = 1.0f / tanf(cam.fov * 0.5f);
 
   *px = (int)(sw * 0.5f + x * f / z * sw * 0.5f / aspect);
