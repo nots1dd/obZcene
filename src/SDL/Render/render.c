@@ -9,6 +9,10 @@
 
 static const float INV_255 = 0.00392156862745098f; // 1 / 255
 
+/* Fallback 64% grey texture and white diffuse */
+static OBZ_channel fallback_px[4] = {160, 160, 160, 255};
+static OBZ_Texture fallback_tex   = {.pixels = fallback_px, .width = 1, .height = 1};
+
 OBZ_RendererContext* obz_render_context_init(int width, int height)
 {
   OBZ_RendererContext* renctx = obz_malloc(sizeof(*renctx));
@@ -25,7 +29,8 @@ OBZ_RendererContext* obz_render_context_init(int width, int height)
   // obz_count_t is alias to size_t; easier to understand when calling `obz_arr_` API
   const obz_count_t pixel_count = (width * height);
 
-  renctx->framebuffer = obz_malloc(pixel_count * 4); // RGBA colors (!!ABGR FORMAT!!)
+  renctx->framebuffer =
+    obz_malloc(pixel_count * sizeof(OBZ_pixel)); // RGBA colors (!!ABGR FORMAT!!)
   if (!renctx->framebuffer)
   {
     OBZ_LOG_ERROR(NULL, "Failed to allocate framebuffer.");
@@ -76,7 +81,6 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel
 
   int idx = y * ctx->width + x;
 
-  // Get raw pointer once instead of function calls
   float* zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
 
   if (zb)
@@ -89,8 +93,8 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel
   ctx->framebuffer[idx] = color;
 }
 
-inline static void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0,
-                                           float* w1, float* w2)
+static void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0, float* w1,
+                                    float* w2)
 {
   const float denom = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
   if (fabsf(denom) < 1e-6f)
@@ -104,7 +108,6 @@ inline static void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int
   *w2                = 1.0f - *w0 - *w1;
 }
 
-// Pre-computed 1/z interpolation
 static Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float one_by_z1,
                                   float one_by_z2, float w0, float w1, float w2)
 {
@@ -128,20 +131,10 @@ static Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0,
   return uv;
 }
 
-bool __OBZ_backface_cull_3d(Vec3 a, Vec3 b, Vec3 c)
-{
-  Vec3 ab = obz_vec3_sub(b, a);
-  Vec3 ac = obz_vec3_sub(c, a);
-
-  Vec3 N = obz_vec3_cross(ab, ac);
-
-  return (N.z >= 0); // camera looks +Z
-}
-
 static OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffuse)
 {
   if (!tex || !tex->pixels)
-    return __OBZ_pack_color_channels(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+    return __OBZ_pack_color(diffuse);
 
   float        u  = obz_clampf01(uv.x);
   float        v  = obz_clampf01(uv.y);
@@ -176,13 +169,13 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3 v0, Vec3 v1, Ve
     return;
 
   // zbuffer pointer once
-  float* zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
+  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
 
   // Pre-compute color for solid-color triangles
-  OBZ_pixel solid_color = 0;
+  OBZ_pixel solid_color_pixels = 0;
   if (use_color_only || !tex || !tex->pixels)
   {
-    solid_color = __OBZ_pack_color_channels(diffuse.r, diffuse.g, diffuse.b, diffuse.a);
+    solid_color_pixels = __OBZ_pack_color(diffuse);
   }
 
   for (int y = miny; y <= maxy; ++y)
@@ -207,44 +200,41 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3 v0, Vec3 v1, Ve
         zb[idx] = z;
       }
 
-      OBZ_pixel out;
+      OBZ_pixel out_buffer;
 
       // texture sampling only after depth test passes
       if (use_color_only || !tex || !tex->pixels)
       {
-        out = solid_color;
+        out_buffer = solid_color_pixels;
       }
       else
       {
         Vec2 uv = __OBZ_interp_uv_persp(uv0, uv1, uv2, one_by_z0, one_by_z1, one_by_z2, w0, w1, w2);
-        out     = __OBZ_sample_texture(tex, uv, diffuse);
+        out_buffer = __OBZ_sample_texture(tex, uv, diffuse);
       }
 
-      ctx->framebuffer[idx] = out;
+      ctx->framebuffer[idx] = out_buffer;
     }
   }
 }
 
-bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int width, int height)
+bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int W, int H)
 {
-  // All vertices left of screen
+  // Left
   if (p0.x < 0 && p1.x < 0 && p2.x < 0)
     return true;
-
-  // All vertices right of screen
-  if (p0.x >= width && p1.x >= width && p2.x >= width)
+  // Right
+  if (p0.x >= W && p1.x >= W && p2.x >= W)
     return true;
-
-  // All vertices above screen
+  // Top
   if (p0.y < 0 && p1.y < 0 && p2.y < 0)
     return true;
-
-  // All vertices below screen
-  if (p0.y >= height && p1.y >= height && p2.y >= height)
+  // Bottom
+  if (p0.y >= H && p1.y >= H && p2.y >= H)
     return true;
 
-  // All vertices behind camera (negative z in view space typically)
-  if (p0.z <= 0 && p1.z <= 0 && p2.z <= 0)
+  // Behind camera
+  if (p0.z <= 0 || p1.z <= 0 || p2.z <= 0)
     return true;
 
   return false;
@@ -258,6 +248,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
 
   const int nverts = mesh->noOfVerts;
   const int nfaces = mesh->noOfFaces;
+
   if (nverts == 0 || nfaces == 0)
     return;
 
@@ -272,7 +263,15 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
   float cy = cosf(yaw), sy = sinf(yaw);
   float cr = cosf(roll), sr = sinf(roll);
 
-  /* Transform vertices */
+  /* Camera forward (ensure normalized) */
+  Vec3 cam_fwd = obz_vec3_norm(cam.direction);
+
+  /* Transform vertices:
+     - compute world-space position (world)
+     - compute view-space depth vz = dot(world - cam.position, cam_fwd)
+     - store screen X/Y from obz_project_camera, and store vz into verts_screen[i].z
+     - precompute one_by_z = 1.0f / vz (or 0 if vz <= 0)
+  */
   for (int i = 0; i < nverts; i++)
   {
     Vec3 v = mesh->verts[i];
@@ -284,30 +283,34 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
     float x3 = x1 * cr - y2 * sr;
     float y3 = x1 * sr + y2 * cr;
 
-    Vec3 world = {x3 + pos.x, y3 + pos.y, z2 + pos.z};
-
+    Vec3 world     = {x3 + pos.x, y3 + pos.y, z2 + pos.z};
     verts_world[i] = world;
 
-    int sx, syi;
-    obz_project_camera(world, cam, &sx, &syi, ctx->width, ctx->height);
+    // view vector from camera to world vertex
+    Vec3  view_vec = obz_vec3_sub(world, cam.position);
+    float vz       = obz_vec3_dot(view_vec, cam_fwd); // depth along camera forward
 
-    verts_screen[i] = (Vec3){(float)sx, (float)syi, world.z};
+    // Project using existing projection routine (expects world + cam)
+    int sx = 0, sy = 0;
+    if (obz_project_camera(world, cam, &sx, &sy, ctx->width, ctx->height) ==
+        OBZ_CAMERA_OUT_OF_BOUNDS)
+    {
+      // Failed projection
+      continue;
+    }
 
-    // Pre-compute 1/z for perspective correction (FIX #5)
-    one_by_z[i] = (world.z != 0.0f) ? (1.0f / world.z) : 0.0f;
+    // store screen coords and view-space depth in z
+    verts_screen[i] = (Vec3){(float)sx, (float)sy, vz};
+
+    one_by_z[i] = (vz > 0.0f) ? (1.0f / vz) : 0.0f;
   }
-
-  /* Fallback 64% grey texture and white diffuse */
-  static OBZ_channel     fallback_px[4]   = {160, 160, 160, 255};
-  static OBZ_Texture     fallback_tex     = {.pixels = fallback_px, .width = 1, .height = 1};
-  static const OBZ_Color fallback_diffuse = COLOR_WHITE;
 
   int* vidx = mesh->indices;
   int* uidx = mesh->uv_indices;
 
   int          current_material_id = -2; // -2 means no material set yet
   OBZ_Texture* current_tex         = &fallback_tex;
-  OBZ_Color    current_diffuse     = fallback_diffuse;
+  OBZ_Color    current_diffuse     = COLOR_WHITE;
 
   for (int t = 0; t < nfaces; t++)
   {
@@ -319,29 +322,28 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
         (unsigned)i2 >= (unsigned)nverts)
       continue;
 
-    // Back-face culling in world space (NOT WORKING)
-    // if (__OBZ_backface_cull_3d(verts_world[i0], verts_world[i1], verts_world[i2]))
-    //   continue;
-
+    /* Screen-space vertices (z contains view-space depth vz) */
     Vec3 p0 = verts_screen[i0];
     Vec3 p1 = verts_screen[i1];
     Vec3 p2 = verts_screen[i2];
 
-    // Early degenerate check before material/UV setup
+    /* Early rejection for off-screen triangles */
+    if (__OBZ_triangle_offscreen(p0, p1, p2, ctx->width, ctx->height))
+      continue;
+
+    // if (__OBZ_backface_cull(verts_world[i0], verts_world[i1], verts_world[i2], cam_fwd))
+    //   continue;
+
     float dx1 = p1.x - p0.x;
     float dy1 = p1.y - p0.y;
     float dx2 = p2.x - p0.x;
     float dy2 = p2.y - p0.y;
+
     if ((dx1 * dy2 - dy1 * dx2) <= 0.0f)
       continue;
 
-    // Early rejection for off-screen triangles (NOT WORKING)
-    // if (__OBZ_triangle_offscreen(p0, p1, p2, ctx->width, ctx->height))
-    //   continue;
-
     int mid = mesh->face_mtl_id ? mesh->face_mtl_id[t] : -1;
 
-    // Only update material if it changed
     if (mid != current_material_id)
     {
       current_material_id = mid;
@@ -358,11 +360,11 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
       else
       {
         current_tex     = &fallback_tex;
-        current_diffuse = fallback_diffuse;
+        current_diffuse = COLOR_WHITE;
       }
     }
 
-    /* UVs */
+    /* UVs (per-triangle) */
     static Vec2 uv0 = {0, 0}, uv1 = {0, 0}, uv2 = {0, 0};
     if (mesh->uvs && mesh->uv_indices)
     {
@@ -379,7 +381,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3 pos, OBZ_Mesh3D* mesh
         uv2 = mesh->uvs[ti2];
     }
 
-    // Pass pre-computed 1/z values
+    /* Pass view-space 1/z (precomputed per-vertex) to rasterizer */
     __OBZ_render_triangle(ctx, p0, p1, p2, uv0, uv1, uv2, one_by_z[i0], one_by_z[i1], one_by_z[i2],
                           current_tex, current_diffuse, 0);
   }

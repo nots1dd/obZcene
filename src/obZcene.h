@@ -74,7 +74,7 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
 
   // ------------ Add mesh to scene ------------
   static Vec3 pos  = {0, 0, 0};
-  static Rot3 rot  = {180, 0, 0};
+  static Rot3 rot  = {0, 0, 0};
   static Rot3 spin = {0, 0, 0};
 
   int mid = obz_scene_add_mesh(scene, obj, pos, rot, 1, spin);

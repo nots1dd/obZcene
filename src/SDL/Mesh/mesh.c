@@ -62,10 +62,10 @@ OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
              (Vec3*)obz_arr_get_data_const(&src->normals), sizeof(Vec3) * out_mesh->noOfNorms);
 
   /* Allocate index buffers */
-  obz_index_t idx_count  = num_tris * 3;
-  out_mesh->indices      = obz_malloc(sizeof(int) * idx_count);
-  out_mesh->uv_indices   = obz_malloc(sizeof(int) * idx_count);
-  out_mesh->norm_indices = obz_malloc(sizeof(int) * idx_count);
+  const obz_index_t idx_count = num_tris * 3;
+  out_mesh->indices           = obz_malloc(sizeof(int) * idx_count);
+  out_mesh->uv_indices        = obz_malloc(sizeof(int) * idx_count);
+  out_mesh->norm_indices      = obz_malloc(sizeof(int) * idx_count);
 
   out_mesh->materials      = NULL;
   out_mesh->material_count = obz_arr_size(&src->materials);
@@ -76,7 +76,8 @@ OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
                                  sizeof(OBZ_ObjMtl) * out_mesh->material_count);
 
   out_mesh->face_mtl_id = obz_malloc(sizeof(int) * out_mesh->noOfFaces);
-  memcpy(out_mesh->face_mtl_id, src->face_mtl_id.obz_data, sizeof(int) * out_mesh->noOfFaces);
+  memcpy(out_mesh->face_mtl_id, (int*)obz_arr_get_data_const(&src->face_mtl_id),
+         sizeof(int) * out_mesh->noOfFaces);
 
   /* Fill triangles */
   for (obz_count_t tri = 0; tri < num_tris; ++tri)

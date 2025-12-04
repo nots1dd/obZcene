@@ -27,15 +27,15 @@ typedef struct
 } OBZ_RendererContext;
 
 // !!AGBR scheme!!
-OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
-{
-  return (c.a << 24) | (c.b << 16) | (c.g << 8) | c.r;
-}
-
 OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color_channels(OBZ_channel r, OBZ_channel g,
                                                             OBZ_channel b, OBZ_channel a)
 {
   return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
+{
+  return __OBZ_pack_color_channels(c.r, c.g, c.b, c.a);
 }
 
 OBZ_API OBZ_RendererContext* obz_render_context_init(int width, int height);

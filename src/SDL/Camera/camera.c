@@ -2,7 +2,7 @@
 #include "Math/clamp.h"
 #include <math.h>
 
-OBZ_Camera obz_camera_init(const Vec3 pos, float W, [[maybe_unused]] float H, float fov_deg)
+OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg)
 {
   float pitch = 0.0f;
   float yaw   = 0.0f;
@@ -17,10 +17,10 @@ OBZ_Camera obz_camera_init(const Vec3 pos, float W, [[maybe_unused]] float H, fl
                     .yaw   = yaw,
                     .roll  = 0.0f,
 
-                    .fov = fov_deg * M_PI / 180.0f,
-                    //.aspect = W / H,
-                    .near = 0.1f,
-                    .far  = 5 * W};
+                    .fov    = fov_deg * M_PI / 180.0f,
+                    .aspect = W / H,
+                    .near   = 0.1f,
+                    .far    = 5 * W};
 
   return cam;
 }
@@ -64,40 +64,46 @@ void obz_camera_update_direction(OBZ_Camera* cam)
   cam->direction   = obz_vec3_norm(cam->direction);
 }
 
-void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw, int sh)
+// Projects a world-space point into pixel coords.
+// Returns 0 on success, 1 if behind near/far or degenerate.
+OBZ_CameraStatus obz_project_camera(const Vec3 world_pos, const OBZ_Camera cam, int* px, int* py,
+                                    int sw, int sh)
 {
   if (!px || !py)
-    return;
+    return OBZ_CAMERA_OUT_OF_BOUNDS;
 
-  Vec3 fwd = obz_vec3_norm(cam.direction);
-
-  // Prevent degenerate right vector
+  // Camera basis
+  Vec3       fwd      = obz_vec3_norm(cam.direction);
   const Vec3 world_up = {0, 1, 0};
-  Vec3       right    = obz_vec3_cross(world_up, fwd);
-  if (obz_vec3_len(right) < 1e-6f) // almost parallel
+
+  Vec3 right = obz_vec3_cross(world_up, fwd);
+  if (obz_vec3_len(right) < 1e-6f)
+  {
     right = obz_vec3_cross((Vec3){0, 0, 1}, fwd);
+  }
   right = obz_vec3_norm(right);
 
   Vec3 up = obz_vec3_cross(fwd, right);
 
-  Vec3 d = obz_vec3_sub(world_pos, cam.position);
-
-  // Transform to camera space
+  // Transform into camera space
+  Vec3  d = obz_vec3_sub(world_pos, cam.position);
   float x = obz_vec3_dot(d, right);
   float y = obz_vec3_dot(d, up);
   float z = obz_vec3_dot(d, fwd);
 
+  // Reject behind near/far
   if (z <= cam.near || z >= cam.far)
-  {
-    *px = -1;
-    *py = -1;
-    return;
-  }
+    return OBZ_CAMERA_OUT_OF_BOUNDS;
 
-  // Perspective projection
-  auto  aspect = (float)(sw / sh);
-  float f      = 1.0f / tanf(cam.fov * 0.5f);
+  // Projection
+  float f = 1.0f / tanf(cam.fov * 0.5f);
 
-  *px = (int)(sw * 0.5f + x * f / z * sw * 0.5f / aspect);
-  *py = (int)(sh * 0.5f - y * f / z * sh * 0.5f);
+  float ndc_x = (x * f) / (z * cam.aspect);
+  float ndc_y = (y * f) / z;
+
+  // Map NDC -> screen pixels
+  *px = (int)(sw * 0.5f + ndc_x * sw * 0.5f);
+  *py = (int)(sh * 0.5f - ndc_y * sh * 0.5f);
+
+  return OBZ_CAMERA_OK;
 }

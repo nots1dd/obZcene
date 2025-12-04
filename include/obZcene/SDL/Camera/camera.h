@@ -7,6 +7,12 @@
 
 OBZ_BEGIN_CPP_DECLS
 
+typedef enum
+{
+  OBZ_CAMERA_OK = 0,
+  OBZ_CAMERA_OUT_OF_BOUNDS
+} OBZ_CameraStatus;
+
 typedef struct
 {
   Vec3 position;  // Camera position
@@ -16,6 +22,8 @@ typedef struct
   float pitch; // rotation around X axis
   float yaw;   // rotation around Y axis
   float roll;  // rotation around Z axis
+
+  float aspect;
 
   float fov;
   float near;
@@ -35,7 +43,8 @@ OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, float min_x, float max
                                          float max_y, float min_z, float max_z);
 OBZ_API void       obz_camera_update_direction(OBZ_Camera* cam);
 // projection with FOV handling
-OBZ_API void obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py, int sw, int sh);
+OBZ_API OBZ_CameraStatus obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py,
+                                            int sw, int sh);
 
 OBZ_END_CPP_DECLS
 
