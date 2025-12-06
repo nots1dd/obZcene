@@ -7,33 +7,87 @@ static const float INV_255 = 0.00392156862745098f; // 1 / 255
 void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0, float* w1,
                              float* w2)
 {
-  // ---------------------- BARYCENTRIC COORDS (2D) ----------------------
+  // ---------------------- BARYCENTRIC COORDS (2D) ------------------------------------------------
   /*
-      Compute barycentric coordinates of pixel (x,y) in triangle (v0, v1, v2).
+      Compute barycentric coordinates of the pixel center (x+0.5, y+0.5) in triangle (v0, v1, v2).
 
-      Using area ratios:
-          w0 = area(P, v1, v2) / area(v0, v1, v2)
-          w1 = area(P, v2, v0) / area(v0, v1, v2)
-          w2 = area(P, v0, v1) / area(v0, v1, v2)
+      Using canonical edge functions:
+          edge(a,b,p) = (b.x - a.x)*(p.y - a.y) - (b.y - a.y)*(p.x - a.x)
 
-      The denominator is a 2D cross product:
-          denom = (v1 - v0) × (v2 - v0)
+      Denominator (area*2) computed as:
+          denom = edge(v0, v1, v2)
 
-      If denom ≈ 0 ⇒ triangle is degenerate or extremely thin.
+      Use double precision for numerical stability, and scale-aware epsilon:
+          area_eps = 1e-6 * (1 + max(|v0.x|, |v0.y|, |v1.x|, |v1.y|, |v2.x|, |v2.y|))
+
+      Reject degenerate triangles:
+          if |denom| < area_eps ⇒ set weights to -1
+
+      Compute edge functions for pixel center:
+          e0 = edge(v1, v2, P)  // weight for v0
+          e1 = edge(v2, v0, P)  // weight for v1
+          e2 = edge(v0, v1, P)  // weight for v2
+
+      Normalize orientation to ensure consistent winding:
+          sign = +1 if denom > 0 else -1
+          se_i = e_i * sign
+
+      Apply top-left rule for shared-edge correctness:
+          accept edge if se_i > 0 or (se_i == 0 and is_top_left_edge(a,b))
+
+      If any edge is not accepted, pixel is outside triangle ⇒ weights = -1
+
+      Otherwise, compute normalized barycentric coordinates:
+          w0 = e0 / denom
+          w1 = e1 / denom
+          w2 = 1 - w0 - w1
+
+      This produces robust coverage with correct edge rules and numerical stability.
   */
-  // ----------------------------------------------------------------------
-  const float denom = (v1.x - v0.x) * (v2.y - v0.y) - (v2.x - v0.x) * (v1.y - v0.y);
-  if (fabsf(denom) < 1e-6f)
+  // --------------------------------------------------------------------------------------------
+
+  const double px = x + 0.5;
+  const double py = y + 0.5;
+
+  // Compute triangle "area" (denominator) in double for stability
+  const double denom = __OBZ_edge_func_d(&v0, &v1, v2.x, v2.y);
+
+  // Scale-aware epsilon: max coord among triangle vertices
+  double       max_coord = fmax(fmax(fabs(v0.x), fabs(v0.y)),
+                                fmax(fmax(fabs(v1.x), fabs(v1.y)), fmax(fabs(v2.x), fabs(v2.y))));
+  const double area_eps  = 1e-6 * (1.0 + max_coord);
+
+  if (fabs(denom) < area_eps)
   {
     *w0 = *w1 = *w2 = -1.0f;
     return;
   }
 
-  const float invDen = 1.0f / denom;
+  // Edge functions (for barycentric weights)
+  const double e0 = __OBZ_edge_func_d(&v1, &v2, px, py); // for w0
+  const double e1 = __OBZ_edge_func_d(&v2, &v0, px, py); // for w1
 
-  *w0 = ((v1.x - v0.x) * (y - v0.y) - (v1.y - v0.y) * (x - v0.x)) * invDen;
-  *w1 = ((v2.x - v1.x) * (y - v1.y) - (v2.y - v1.y) * (x - v1.x)) * invDen;
-  *w2 = 1.0f - *w0 - *w1;
+  // Normalize orientation to ensure consistent winding
+  const double sign = denom > 0.0 ? 1.0 : -1.0;
+  const double se0  = e0 * sign;
+  const double se1  = e1 * sign;
+  const double se2  = (denom - e0 - e1) * sign;
+
+  // Top-left edge inclusion (inline to avoid branching function call)
+  int accept0 = (se0 > 0.0) || (se0 == 0.0 && ((v2.y < v1.y) || (v2.y == v1.y && v2.x > v1.x)));
+  int accept1 = (se1 > 0.0) || (se1 == 0.0 && ((v0.y < v2.y) || (v0.y == v2.y && v0.x > v2.x)));
+  int accept2 = (se2 > 0.0) || (se2 == 0.0 && ((v1.y < v0.y) || (v1.y == v0.y && v1.x > v0.x)));
+
+  if (!(accept0 && accept1 && accept2))
+  {
+    *w0 = *w1 = *w2 = -1.0f;
+    return;
+  }
+
+  const double invDen = 1.0 / denom;
+  *w0                 = (float)(e0 * invDen);
+  *w1                 = (float)(e1 * invDen);
+  *w2                 = 1.0f - *w0 - *w1;
 }
 
 Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float one_by_z1,
@@ -58,22 +112,22 @@ Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float 
       This prevents texture distortion on steep surfaces.
   */
   // -------------------------------------------------------------------------------
-  const float u0  = uv0.x * one_by_z0;
-  const float v0_ = uv0.y * one_by_z0;
-  const float u1  = uv1.x * one_by_z1;
-  const float v1_ = uv1.y * one_by_z1;
-  const float u2  = uv2.x * one_by_z2;
-  const float v2_ = uv2.y * one_by_z2;
+  const float u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
+  const float v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
 
-  float u = w0 * u0 + w1 * u1 + w2 * u2;
-  float v = w0 * v0_ + w1 * v1_ + w2 * v2_;
+  // Denominator for perspective-correct interpolation
+  float       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
+  float       mag   = fmax(fmax(fabsf(one_by_z0), fabsf(one_by_z1)), fabsf(one_by_z2));
+  const float eps   = 1e-8f * fmax(1.0f, mag);
 
-  // Interpolated inverse-depth
-  float iz = 1.0f / (w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2);
+  if (denom <= eps)
+  {
+    // fallback to affine interpolation
+    return (Vec2){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
+  }
 
-  Vec2 uv = {u * iz, v * iz};
-
-  return uv;
+  float iz = 1.0f / denom;
+  return (Vec2){u * iz, v * iz};
 }
 
 bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int W, int H)
@@ -88,19 +142,9 @@ bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int W, int H)
       Also reject if any z <= 0 ⇒ behind camera (invalid in view space).
   */
   // ------------------------------------------------------------------------
-  if (p0.x < 0 && p1.x < 0 && p2.x < 0)
-    return true;
-  if (p0.x >= W && p1.x >= W && p2.x >= W)
-    return true;
-  if (p0.y < 0 && p1.y < 0 && p2.y < 0)
-    return true;
-  if (p0.y >= H && p1.y >= H && p2.y >= H)
-    return true;
-
-  if (p0.z <= 0 || p1.z <= 0 || p2.z <= 0)
-    return true;
-
-  return false;
+  return ((p0.x < 0 && p1.x < 0 && p2.x < 0) || (p0.x >= W && p1.x >= W && p2.x >= W) ||
+          (p0.y < 0 && p1.y < 0 && p2.y < 0) || (p0.y >= H && p1.y >= H && p2.y >= H) ||
+          (p0.z <= 0 && p1.z <= 0 && p2.z <= 0));
 }
 
 OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffuse)
@@ -122,20 +166,29 @@ OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffus
   if (!tex || !tex->pixels)
     return __OBZ_pack_color(diffuse);
 
+  // Clamp UV to [0,1]
   float u = obz_clampf01(uv.x);
   float v = obz_clampf01(uv.y);
 
   int tx = (int)(u * (tex->width - 1));
   int ty = (int)((1.0f - v) * (tex->height - 1));
 
+  // Clamp indices
+  if (tx < 0)
+    tx = 0;
+  else if (tx >= (int)tex->width)
+    tx = tex->width - 1;
+  if (ty < 0)
+    ty = 0;
+  else if (ty >= (int)tex->height)
+    ty = tex->height - 1;
+
   OBZ_channel* p = tex->pixels + 4 * (ty * tex->width + tx);
 
-  auto r = (OBZ_channel)((p[0] * diffuse.r) * INV_255);
-  auto g = (OBZ_channel)((p[1] * diffuse.g) * INV_255);
-  auto b = (OBZ_channel)((p[2] * diffuse.b) * INV_255);
-  auto a = p[3];
-
-  return __OBZ_pack_color_channels(r, g, b, a);
+  // Multiply channels and diffuse using precomputed INV_255
+  return __OBZ_pack_color_channels((OBZ_channel)(p[0] * diffuse.r * INV_255),
+                                   (OBZ_channel)(p[1] * diffuse.g * INV_255),
+                                   (OBZ_channel)(p[2] * diffuse.b * INV_255), p[3]);
 }
 
 void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const float* zbuf_clear_ptr)

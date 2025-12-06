@@ -12,6 +12,22 @@
 
 OBZ_BEGIN_CPP_DECLS
 
+OBZ_FORCE_INLINE static double __OBZ_edge_func_d(const Vec3* a, const Vec3* b, double px, double py)
+{
+  return (double)(b->x - a->x) * (py - (double)a->y) - (double)(b->y - a->y) * (px - (double)a->x);
+}
+
+OBZ_FORCE_INLINE static int __OBZ_is_top_left_edge(const Vec3* a, const Vec3* b)
+{
+  /* top-left rule: edge is top-left if it is exactly horizontal and b.x > a.x,
+     or if b.y < a.y (higher on screen since y grows downward in screen coords). */
+  if (b->y < a->y)
+    return 1;
+  if (b->y == a->y && b->x > a->x)
+    return 1;
+  return 0;
+}
+
 OBZ_INTERNAL_API void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0,
                                               float* w1, float* w2);
 OBZ_INTERNAL_API Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0,
