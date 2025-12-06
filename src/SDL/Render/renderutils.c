@@ -41,8 +41,6 @@ void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0,
           w0 = e0 / denom
           w1 = e1 / denom
           w2 = 1 - w0 - w1
-
-      This produces robust coverage with correct edge rules and numerical stability.
   */
   // --------------------------------------------------------------------------------------------
 
