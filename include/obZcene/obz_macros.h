@@ -103,12 +103,8 @@
 #endif
 
 /* Public API tag for documentation purposes */
-#if defined(__GNUC__) || defined(__clang__)
-#define OBZ_API_INLINE OBZ_FORCE_INLINE __attribute__((visibility("internal")))
-/* "internal" avoids warnings, signals API usage in headers */
-#else
-#define OBZ_API_INLINE OBZ_FORCE_INLINE
-#endif
+#define OBZ_API_IMPL     OBZ_FORCE_INLINE
+#define OBZ_INTERNAL_API OBZ_NO_INLINE
 
 /* =========================================================================
    CONSTEXPR / CONST
@@ -184,6 +180,7 @@
    DEBUG / ASSERTIONS
    ========================================================================= */
 #include <assert.h>
+#include <stdio.h>
 #define OBZ_ASSERT(cond, msg)                         \
   do                                                  \
   {                                                   \

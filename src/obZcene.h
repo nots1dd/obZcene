@@ -30,7 +30,7 @@ inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int l
                                   OBZ_Color color)
 {
 
-  OBZ_pixel pixel_color = __OBZ_pack_color(color);
+  const OBZ_pixel pixel_color = __OBZ_pack_color(color);
 
   // horizontal left
   for (int x = cx - length; x < cx - gap; x++)
@@ -62,6 +62,7 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
   {
     OBZ_LOG_FATAL(NULL, "init_scene: failed to load OBJ model from asset!!");
     exit(-1);
+    return;
   }
 
   OBZ_Mesh3D* obj = obz_mesh_from_obj(&out);
@@ -70,6 +71,7 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
     OBZ_LOG_ERROR(NULL, "init_scene: OBJ load failed or empty mesh");
     free(obj);
     exit(-1);
+    return;
   }
 
   // ------------ Add mesh to scene ------------
@@ -83,6 +85,7 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
     OBZ_LOG_FATAL(NULL, "init_scene: failed to add OBJ mesh to scene");
     free(obj);
     exit(-1);
+    return;
   }
 
   OBZ_LOG_TRACE(NULL, "Scene initialized with OBJ model and UV texture bound");

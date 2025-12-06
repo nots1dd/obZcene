@@ -1,18 +1,5 @@
 #include "SDL/Scene/scene.h"
 
-struct OBZ_Scene
-{
-  OBZ_Mesh3D** meshes;
-  Vec3*        positions;
-  Rot3*        rotations;
-  Rot3*        rotSpeeds;
-  uint8_t*     owned;
-
-  int   count;
-  int   capacity;
-  float time;
-};
-
 /* ---------------- Internal Helper --------------- */
 static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
 {
@@ -26,7 +13,7 @@ static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
   s->positions = obz_realloc(s->positions, sizeof(Vec3) * cap);
   s->rotations = obz_realloc(s->rotations, sizeof(Rot3) * cap);
   s->rotSpeeds = obz_realloc(s->rotSpeeds, sizeof(Rot3) * cap);
-  s->owned     = obz_realloc(s->owned, sizeof(uint8_t) * cap);
+  s->owned     = obz_realloc(s->owned, sizeof(OBZ_MeshOwnership) * cap);
 
   s->capacity = cap;
 }
@@ -72,10 +59,10 @@ int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int o
   s->meshes[id]    = mesh;
   s->positions[id] = pos;
   s->rotations[id] = rot;
-  s->owned[id]     = own_mesh ? 1 : 0;
+  s->owned[id]     = own_mesh ? OBZ_SCENE_OWN_MESH : OBZ_SCENE_DONT_OWN_MESH;
   s->rotSpeeds[id] = speed;
-
   s->count++;
+
   return id;
 }
 

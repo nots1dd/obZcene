@@ -4,17 +4,26 @@
 
 OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg)
 {
-  float pitch = 0.0f;
-  float yaw   = 0.0f;
+  // ---------------------- DEG -> RAD + ASPECT RATIO ----------------------
+  /*
+      FOV (field of view) is commonly specified in degrees, but camera math
+      uses radians.
 
-  Vec3 dir = obz_vec3(0, 0, -1);
+          fov_rad = fov_deg * π / 180
 
+      Aspect ratio is:
+
+          aspect = width / height
+
+      Both are used in the perspective projection matrix.
+  */
+  // ----------------------------------------------------------------------
   OBZ_Camera cam = {.position  = pos,
-                    .direction = dir,
+                    .direction = obz_vec3(0, 0, 0),
                     .velocity  = obz_vec3(0, 0, 0),
 
-                    .pitch = pitch,
-                    .yaw   = yaw,
+                    .pitch = 0.0f,
+                    .yaw   = 0.0f,
                     .roll  = 0.0f,
 
                     .fov    = fov_deg * M_PI / 180.0f,
@@ -27,12 +36,32 @@ OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg)
 
 void obz_camera_update(OBZ_Camera* cam, float dt)
 {
+  // ---------------------- POSITION INTEGRATION (Euler) ----------------------
+  /*
+      Simple Euler integration:
+
+          position += velocity * dt
+
+      No physics, just linear translation based on constant velocity.
+  */
+  // --------------------------------------------------------------------------
   cam->position.x += cam->velocity.x * dt;
   cam->position.y += cam->velocity.y * dt;
   cam->position.z += cam->velocity.z * dt;
 
   if (cam->has_bounds)
   {
+    // ---------------------- CLAMPING ----------------------
+    /*
+        Each axis is clamped to bounded intervals:
+
+            x ∈ [min_x, max_x]
+            y ∈ [min_y, max_y]
+            z ∈ [min_z, max_z]
+
+        Standard clamp: min(max(v, low), high)
+    */
+    // -------------------------------------------------------
     cam->position.x = obz_clampf(cam->position.x, cam->min_x, cam->max_x);
     cam->position.y = obz_clampf(cam->position.y, cam->min_y, cam->max_y);
     cam->position.z = obz_clampf(cam->position.z, cam->min_z, cam->max_z);
@@ -53,6 +82,22 @@ void obz_camera_set_bounds(OBZ_Camera* cam, float min_x, float max_x, float min_
 
 void obz_camera_update_direction(OBZ_Camera* cam)
 {
+  // ---------------------- SPHERICAL COORDINATE ROTATION ----------------------
+  /*
+      Camera direction is derived from yaw (horizontal) and pitch (vertical).
+
+      Using spherical coordinates:
+
+          x = cos(pitch) * sin(yaw)
+          y = sin(pitch)
+          z = -cos(pitch) * cos(yaw)
+
+      These produce a unit vector on the sphere, rotated by the angles.
+      This is equivalent to constructing a forward direction vector from
+      Euler angles. The resulting direction is normalized to ensure
+      stable unit length.
+  */
+  // ---------------------------------------------------------------------------
   float cp = cosf(cam->pitch);
   float sp = sinf(cam->pitch);
   float cy = cosf(cam->yaw);
@@ -72,36 +117,104 @@ OBZ_CameraStatus obz_project_camera(const Vec3 world_pos, const OBZ_Camera cam, 
   if (!px || !py)
     return OBZ_CAMERA_OUT_OF_BOUNDS;
 
-  // Camera basis
+  // ---------------------- CAMERA BASIS (Right/Up/Forward) ----------------------
+  /*
+      We construct an orthonormal basis from the forward direction:
+
+          fwd = normalize(direction)
+
+      The global up vector (0,1,0) is used to derive the camera's right axis:
+
+          right = normalize(up × fwd)
+
+      And then:
+
+          up = fwd × right
+
+      This yields a right-handed coordinate system:
+
+          (right, up, fwd)
+
+      These vectors form the rotation component of the view matrix.
+  */
+  // -------------------------------------------------------------------------------
   Vec3       fwd      = obz_vec3_norm(cam.direction);
   const Vec3 world_up = {0, 1, 0};
 
   Vec3 right = obz_vec3_cross(world_up, fwd);
   if (obz_vec3_len(right) < 1e-6f)
   {
+    // Degenerate case: camera looking straight up/down.
     right = obz_vec3_cross((Vec3){0, 0, 1}, fwd);
   }
   right = obz_vec3_norm(right);
 
   Vec3 up = obz_vec3_cross(fwd, right);
 
-  // Transform into camera space
+  // ---------------------- TRANSFORM: WORLD -> CAMERA SPACE ------------------------
+  /*
+      Camera space coordinates are computed by projecting the offset vector
+      onto the camera basis:
+
+          d = world_pos - camera_pos
+
+          x_cam = dot(d, right)
+          y_cam = dot(d, up)
+          z_cam = dot(d, fwd)
+
+      This effectively applies the inverse of the rotation part of the view matrix.
+  */
+  // --------------------------------------------------------------------------------
   Vec3  d = obz_vec3_sub(world_pos, cam.position);
   float x = obz_vec3_dot(d, right);
   float y = obz_vec3_dot(d, up);
   float z = obz_vec3_dot(d, fwd);
 
-  // Reject behind near/far
+  // ---------------------- NEAR/FAR CLIPPING ----------------------
+  /*
+      The point must lie inside the view frustum depth range:
+
+          z > near
+          z < far
+
+      If z is behind or beyond the camera’s view, reject it.
+  */
+  // ----------------------------------------------------------------
   if (z <= cam.near || z >= cam.far)
     return OBZ_CAMERA_OUT_OF_BOUNDS;
 
-  // Projection
+  // ---------------------- PERSPECTIVE PROJECTION ----------------------
+  /*
+      We use the simplified perspective division:
+
+          f = 1 / tan(fov/2)
+
+          ndc_x = (x * f) / (z * aspect)
+          ndc_y = (y * f) / z
+
+      This is equivalent to multiplying by the perspective projection matrix
+      and then dividing by w.
+
+      It maps camera-space to NDC (normalized device coordinates):
+          ndc ∈ [-1, +1]
+  */
+  // ----------------------------------------------------------------------
   float f = 1.0f / tanf(cam.fov * 0.5f);
 
+  // NDC coordinates (normalized device coords)
   float ndc_x = (x * f) / (z * cam.aspect);
   float ndc_y = (y * f) / z;
 
-  // Map NDC -> screen pixels
+  // ---------------------- NDC -> SCREEN COORDINATES ----------------------
+  /*
+      Convert NDC [-1,1] to pixel space:
+
+          px = (ndc_x * 0.5 + 0.5) * screen_width
+          py = (1 - (ndc_y * 0.5 + 0.5)) * screen_height
+
+      The Y-axis flips because screen coordinates grow downward.
+  */
+  // -----------------------------------------------------------------------
   *px = (int)(sw * 0.5f + ndc_x * sw * 0.5f);
   *py = (int)(sh * 0.5f - ndc_y * sh * 0.5f);
 

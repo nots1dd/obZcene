@@ -28,6 +28,18 @@ typedef struct
   OBZ_channel r, g, b, a;
 } OBZ_Color;
 
+// !!AGBR scheme!!
+OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color_channels(OBZ_channel r, OBZ_channel g,
+                                                            OBZ_channel b, OBZ_channel a)
+{
+  return (a << 24) | (b << 16) | (g << 8) | r;
+}
+
+OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
+{
+  return __OBZ_pack_color_channels(c.r, c.g, c.b, c.a);
+}
+
 /* Common opaque utf8-ish names */
 static const OBZ_Color COLOR_TRANSPARENT = {0, 0, 0, 0};
 static const OBZ_Color COLOR_WHITE       = {255, 255, 255, 255};

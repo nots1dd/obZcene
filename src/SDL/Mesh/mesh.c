@@ -1,4 +1,5 @@
 #include "SDL/Mesh/mesh.h"
+#include "Utils/null.h"
 
 void obz_mesh_free_all(OBZ_Mesh3D* mesh)
 {
@@ -25,17 +26,27 @@ void obz_mesh_free_all(OBZ_Mesh3D* mesh)
 
 OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
 {
-  if (!src)
-    return NULL;
+  __OBZ_RETURN_NULL_IF_NULL(src);
 
   auto num_idx_entries = (int)src->faces.size;
   if (num_idx_entries <= 0)
     return NULL;
 
+  // ---------------------- INDEX COUNT -> TRIANGLE COUNT ------------------------
+  /*
+      OBJ files store faces as sets of vertex-index triplets: (v, vt, vn).
+      Every *3* OBJ face-index entries define a single triangle.
+
+          num_tris = index_entry_count / 3
+
+      Simple integer division – no geometry here, but it establishes the
+      size of triangle-based buffers.
+  */
+  // ----------------------------------------------------------------------------
   obz_count_t num_tris = num_idx_entries / 3;
   auto        fbase    = obz_arr_get_data(&src->faces, OBZ_ObjIndex);
-  if (!fbase)
-    return NULL;
+
+  __OBZ_RETURN_NULL_IF_NULL(fbase);
 
   /* Allocate mesh */
   OBZ_Mesh3D* out_mesh = obz_calloc(1, sizeof(OBZ_Mesh3D));
@@ -87,6 +98,15 @@ OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
     OBZ_ObjIndex b    = fbase[base + 1];
     OBZ_ObjIndex c    = fbase[base + 2];
 
+    // ---------------------- OBJ INDICES -> 0-BASED ------------------------
+    /*
+        OBJ uses 1-based indices: (1 ... N).
+        Internal representation uses 0-based indices: (0 ... N-1).
+
+        Conversion:   internal = obj - 1
+        If the OBJ index is 0 or negative (rare but permitted), we mark as -1.
+    */
+    // ----------------------------------------------------------------------
     out_mesh->indices[base + 0] = (a.v > 0) ? a.v - 1 : -1;
     out_mesh->indices[base + 1] = (b.v > 0) ? b.v - 1 : -1;
     out_mesh->indices[base + 2] = (c.v > 0) ? c.v - 1 : -1;

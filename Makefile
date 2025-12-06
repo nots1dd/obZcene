@@ -63,6 +63,7 @@ SRC := \
     src/main.c \
     src/SDL/core.c \
     src/SDL/Render/render.c \
+		src/SDL/Render/renderutils.c \
     src/SDL/Textures/textures.c \
     src/SDL/Camera/camera.c \
 		src/SDL/Scene/scene.c \

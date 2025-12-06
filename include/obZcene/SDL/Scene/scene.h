@@ -7,8 +7,6 @@
 
 OBZ_BEGIN_CPP_DECLS
 
-typedef struct OBZ_Scene OBZ_Scene;
-
 typedef Vec3 Rot3;
 
 typedef struct
@@ -19,6 +17,25 @@ typedef struct
   Rot3*       rot;
   Rot3*       rotSpeed;
 } OBZ_SceneEntry;
+
+typedef enum : uint8_t
+{
+  OBZ_SCENE_DONT_OWN_MESH = 0,
+  OBZ_SCENE_OWN_MESH      = 1,
+} OBZ_MeshOwnership;
+
+typedef struct
+{
+  OBZ_Mesh3D**       meshes;
+  Vec3*              positions;
+  Rot3*              rotations;
+  Rot3*              rotSpeeds;
+  OBZ_MeshOwnership* owned;
+
+  int   count;
+  int   capacity;
+  float time;
+} OBZ_Scene;
 
 /* ---- Creation / Destruction ---- */
 OBZ_API OBZ_Scene* obz_scene_create(void);

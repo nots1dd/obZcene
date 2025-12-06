@@ -108,13 +108,13 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   OBZ_LOG_TRACE(NULL, "SDL hints set.");
 
   // Initialize PNG/JPG loader
-  int flags = IMG_INIT_PNG | IMG_INIT_JPG;
+  int flags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_WEBP;
   if ((IMG_Init(flags) & flags) != flags)
   {
     OBZ_LOG_ERROR(NULL, "IMG_Init failed: %s", IMG_GetError());
     return 0;
   }
-  OBZ_LOG_DEBUG(NULL, "SDL_image initialized with PNG & JPG support.");
+  OBZ_LOG_DEBUG(NULL, "SDL_image initialized with PNG, JPG and WEBP support.");
 
   return ctx;
 }

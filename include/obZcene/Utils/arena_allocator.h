@@ -32,7 +32,7 @@ typedef struct
  * Allocates:
  *    [OBZ_Arena struct][arena memory...]
  */
-static inline OBZ_Arena* obz_arena_init(size_t cap)
+OBZ_API_IMPL static OBZ_Arena* obz_arena_init(size_t cap)
 {
   size_t     total = sizeof(OBZ_Arena) + cap;
   OBZ_Arena* a     = (OBZ_Arena*)malloc(total);
@@ -46,15 +46,18 @@ static inline OBZ_Arena* obz_arena_init(size_t cap)
   return a;
 }
 
-static inline void obz_arena_reset(OBZ_Arena* a) { a->offset = 0; }
+OBZ_API_IMPL static void obz_arena_reset(OBZ_Arena* a) { a->offset = 0; }
 
 /*
  * Allocate aligned memory from the arena.
  *
  * align MUST be a power of two!!
  */
-static inline void* obz_arena_alloc(OBZ_Arena* a, size_t size, size_t align)
+OBZ_API_IMPL static void* obz_arena_alloc(OBZ_Arena* a, size_t size, size_t align)
 {
+
+  OBZ_ASSERT((align & (align - 1)) == 0, "Alignment must be a power of two.");
+
   size_t aligned = (a->offset + align - 1) & ~(align - 1);
 
   if (aligned + size > a->capacity)
