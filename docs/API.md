@@ -22,6 +22,41 @@ Couple of things:
     int __OBZ_func_name(...);
     ```
 
+    Some macros to take note of that classify the function type in obZcene:
+
+    ```h
+    // in a header file...
+    OBZ_API int obz_api_call(...);
+    ```
+
+    The above is a regular api decl of an obzcene function. It is meant to be used as a public API.
+
+    ```h
+    // in a header file...
+    OBZ_API_INLINE float obz_api_call(...) { ... }
+    ```
+    
+    The above is an **INLINED** API call of an obZcene function. It is meant to be used as an inlined public API.
+
+    Note that the different between `OBZ_API` and `OBZ_API_INLINE` is just that `OBZ_API` is split into header and C file (decl goes in header and implementation goes in corresponding C file)
+
+    Meanwhile `OBZ_API_INLINE` is completely inlined and resides solely in the header.
+
+    ```c 
+    // in a c source file...
+    OBZ_INTERNAL double __OBZ_func_name(...) { ... }
+    ```
+
+    This is a macro to NOT inline the function (makes it easy to search the repo for internal functions) and explicitly states that this is a **private** and **internal** function call that is NOT meant to be used directly by the user.
+
+    > [!NOTE]
+    > 
+    > Not ALL internal helpers have the `OBZ_INTERNAL` macro. A lot of them are **INLINED**.
+    > 
+    > To better detect them, search for `__OBZ_` as the prefix of the function name.
+    > 
+
+
 2. APIs by definition have very stable return types.
 
     So this means that the onus is on the **user** who has to assert and check if the API is returning an expected value. The API will not perform too many static assertions or any bound checking for you.

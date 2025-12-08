@@ -27,11 +27,11 @@ typedef struct
 } Vec3d;
 
 /* Constructors */
-OBZ_API_IMPL static Vec2f obz_vec2f(float x, float y) { return (Vec2f){x, y}; }
-OBZ_API_IMPL static Vec3f obz_vec3f(float x, float y, float z) { return (Vec3f){x, y, z}; }
+OBZ_API_INLINE static Vec2f obz_vec2f(float x, float y) { return (Vec2f){x, y}; }
+OBZ_API_INLINE static Vec3f obz_vec3f(float x, float y, float z) { return (Vec3f){x, y, z}; }
 
-OBZ_API_IMPL static Vec2d obz_vec2d(double x, double y) { return (Vec2d){x, y}; }
-OBZ_API_IMPL static Vec3d obz_vec3d(double x, double y, double z) { return (Vec3d){x, y, z}; }
+OBZ_API_INLINE static Vec2d obz_vec2d(double x, double y) { return (Vec2d){x, y}; }
+OBZ_API_INLINE static Vec3d obz_vec3d(double x, double y, double z) { return (Vec3d){x, y, z}; }
 
 /*-------------------------------------------------------
     Vec2f API

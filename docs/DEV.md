@@ -1,5 +1,7 @@
 # Development on obZcene
 
+Firstly, do note that the core architecture and flow of obZcene is yet to documented. The project itself is not big so feel free to understand on your own and document it.
+
 > [!IMPORTANT]
 > 
 > The build system is currently just a big Makefile.
@@ -86,6 +88,34 @@ There arent too many rules just yet:
     These are the only cases where `auto` is acceptable.
 
     Why did I make this choice? Idk thought why not.
+
+9. Global variables
+
+    It should have `g_` as its prefix with either static linkage or can extern it.
+    
+    ```c 
+    static const int ok = 99;   // !!NOT ALLOWED!!
+
+    static const int g_ok = 99; // ALLOWED
+    ```
+
+    For externing a variable, declare it in a header and call that in **ONE** `.c` file ONLY.
+
+    ```c 
+    // in A.h:
+    extern float g_hello;
+
+    // in some.c:
+    int g_hello = 99;
+    ```
+
+10. Use `Utils` and obZcene helpers
+
+    obZcene provides `obz_types.h`, `obz_log.h`, `obz_mem.h`, `obz_macros.h` and `include/obZcene/Utils` which provide a plethra of things that the core logic of the game engine uses extensively.
+
+    For example, no actual `malloc` or `calloc` is meant to be made. You are expected to use `obz_malloc` and `obz_calloc` respectively.
+
+    The `Utils` directory provides a dynamic array that is dtype irrelevant (works for any data type / structs), small arena allocator, null utilities and custom string operations (mainly required for parsing obj files)
 
 There are more to come (hopefully) if I am not too busy.
 

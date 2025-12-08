@@ -5,7 +5,7 @@
 #include "obz_types.h"
 
 #define OBZ_CLAMP_MACRO_DECL(type, name)                             \
-  OBZ_API_IMPL static type obz_clamp##name(type v, type lo, type hi) \
+  OBZ_API_INLINE static type obz_clamp##name(type v, type lo, type hi) \
   {                                                                  \
     if (v < lo)                                                      \
       return lo;                                                     \
@@ -32,21 +32,21 @@ OBZ_CLAMP_MACRO_DECL(float, f)
 
 OBZ_CLAMP_MACRO_DECL(double, d)
 
-OBZ_API_IMPL static float obz_clampf01(float x) { return obz_clampf(x, 0.0f, 1.0f); }
+OBZ_API_INLINE static float obz_clampf01(float x) { return obz_clampf(x, 0.0f, 1.0f); }
 
-OBZ_API_IMPL static double obz_clampd01(double x) { return obz_clampd(x, 0.0, 1.0); }
+OBZ_API_INLINE static double obz_clampd01(double x) { return obz_clampd(x, 0.0, 1.0); }
 
-OBZ_API_IMPL static int obz_clamp_floor_to_int(float v, int lo, int hi)
+OBZ_API_INLINE static int obz_clamp_floor_to_int(float v, int lo, int hi)
 {
   return obz_clampi((int)obz_floorf(v), lo, hi);
 }
 
-OBZ_API_IMPL static int obz_clamp_ceil_to_int(float v, int lo, int hi)
+OBZ_API_INLINE static int obz_clamp_ceil_to_int(float v, int lo, int hi)
 {
   return obz_clampi((int)obz_ceilf(v), lo, hi);
 }
 
-OBZ_API_IMPL static int obz_clampf_to_int(float x, int max_target)
+OBZ_API_INLINE static int obz_clampf_to_int(float x, int max_target)
 {
   x = obz_clampf01(x); // first clamp to [0,1]
   return (int)(x * max_target);

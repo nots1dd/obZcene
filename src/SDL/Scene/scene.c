@@ -1,7 +1,7 @@
 #include "SDL/Scene/scene.h"
 
 /* ---------------- Internal API helpers --------------- */
-OBZ_INTERNAL_API static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
+OBZ_INTERNAL static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
 {
   if (s->capacity >= need)
     return;
@@ -18,7 +18,7 @@ OBZ_INTERNAL_API static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
   s->capacity = cap;
 }
 
-OBZ_INTERNAL_API static void __OBZ_scene_mesh_id_incr(OBZ_Scene* s) { s->id++; }
+OBZ_INTERNAL static void __OBZ_scene_mesh_id_incr(OBZ_Scene* s) { s->id++; }
 
 /* ---------------- Create / Destroy --------------- */
 OBZ_Scene* obz_scene_create(void)

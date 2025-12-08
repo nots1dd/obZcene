@@ -6,11 +6,11 @@ A truly obscene piece of work.
 
 WIP
 
-## Aim 
+## 0. Aim 
 
 Possibly a super small but very powerful **Immediate mode** game engine (possibly).
 
-## Build
+## 1. Build
 
 > [!NOTE]
 > 
@@ -31,3 +31,27 @@ Possibly a super small but very powerful **Immediate mode** game engine (possibl
 ```bash 
 make
 ```
+
+### 1.2 Build options
+
+1. `BUILD`: Can build target as release or debug
+
+2. `PREFIX`: For global installation directory (**NOT RECOMMENDED**)
+
+3. `JOBS`: How many threads to run to compile the project
+
+4. `VERBOSE`: Add more verbosity by printing compilation commands and other details to stdout while compiling
+
+Example run:
+
+```bash 
+make BUILD=debug JOBS=8 VERBOSE=1
+```
+
+### 2. Development
+
+Read [DEV.md](https://github.com/nots1dd/obZcene/blob/dev/docs/DEV.md) for more regarding the contribution guidelines / dev stuff.
+
+### 3. LICENSE
+
+This project is licensed under BSD 3 Clause [LICENSE](https://github.com/nots1dd/obZcene/blob/dev/LICENSE)
