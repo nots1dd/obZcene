@@ -88,7 +88,7 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   obz_set_global_logger(ctx->log);
   // will check for NULL internally
   ctx->renctx                   = obz_render_context_init(dims.width, dims.height);
-  ctx->renctx->arena_alloc      = obz_arena_init(40 * 1024 * 1024); // 50 MB arena
+  ctx->renctx->arena_alloc      = obz_arena_init(32 * 1024 * 1024); // 32 MB arena
   ctx->renctx->background_color = COLOR_BLACK_PIXELS;
   OBZ_LOG_INFO(ctx->log, "obZcene context created successfully!");
   OBZ_LOG_DEBUG(NULL, "Initializing SDL...");
@@ -280,7 +280,7 @@ OBZ_Result obz_run(OBZ_Context* ctx)
     }
 
     Uint64 now              = SDL_GetPerformanceCounter();
-    double dt               = (double)((now - ctx->timer.last_counter) / ctx->timer.perf_freq);
+    auto   dt               = (float)((now - ctx->timer.last_counter) / ctx->timer.perf_freq);
     ctx->timer.last_counter = now;
 
     if (ctx->cb.update)

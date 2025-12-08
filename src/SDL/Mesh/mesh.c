@@ -59,18 +59,18 @@ OBZ_Mesh3D* obz_mesh_from_obj(const OBZ_ObjMesh* src)
 
   if (out_mesh->noOfVerts)
     out_mesh->verts =
-      memcpy(obz_malloc(sizeof(Vec3d) * out_mesh->noOfVerts),
-             (Vec3d*)obz_arr_get_data_const(&src->positions), sizeof(Vec3d) * out_mesh->noOfVerts);
+      memcpy(obz_malloc(sizeof(Vec3f) * out_mesh->noOfVerts),
+             (Vec3f*)obz_arr_get_data_const(&src->positions), sizeof(Vec3f) * out_mesh->noOfVerts);
 
   if (out_mesh->noOfUVs)
     out_mesh->uvs =
-      memcpy(obz_malloc(sizeof(Vec2d) * out_mesh->noOfUVs),
-             (Vec2d*)obz_arr_get_data_const(&src->texcoords), sizeof(Vec2d) * out_mesh->noOfUVs);
+      memcpy(obz_malloc(sizeof(Vec2f) * out_mesh->noOfUVs),
+             (Vec2f*)obz_arr_get_data_const(&src->texcoords), sizeof(Vec2f) * out_mesh->noOfUVs);
 
   if (out_mesh->noOfNorms)
     out_mesh->norms =
-      memcpy(obz_malloc(sizeof(Vec3d) * out_mesh->noOfNorms),
-             (Vec3d*)obz_arr_get_data_const(&src->normals), sizeof(Vec3d) * out_mesh->noOfNorms);
+      memcpy(obz_malloc(sizeof(Vec3f) * out_mesh->noOfNorms),
+             (Vec3f*)obz_arr_get_data_const(&src->normals), sizeof(Vec3f) * out_mesh->noOfNorms);
 
   /* Allocate index buffers */
   const obz_index_t idx_count = num_tris * 3;

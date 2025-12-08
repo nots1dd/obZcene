@@ -7,24 +7,28 @@
 #include "obz_log.h"
 #include <stdlib.h>
 
-static const double W      = 1200;
-static const double H      = 600;
-static const double D      = 1000;
-static const double margin = 20.0f;
+static const float g_W      = 1200;
+static const float g_H      = 600;
+static const float g_D      = 1000;
+static const float g_margin = 20.0f;
 
-inline static void print_camera_debug(const OBZ_Camera* cam)
-{
-  Vec3d fwd = obz_vec3d_norm(cam->direction);
+static OBZ_CamBound g_x_axis = {-g_W / 2 + g_margin, g_W / 2 - g_margin};
+static OBZ_CamBound g_y_axis = {-g_H / 2 + g_margin, g_H / 2 - g_margin};
+static OBZ_CamBound g_z_axis = {-g_D / 2 + g_margin, g_D / 2 - g_margin};
 
-  printf("\r"
-         "POS: %.2f %.2f %.2f | "
-         "DIR: %.2f %.2f %.2f | "
-         "YAW: %.2f | PITCH: %.2f   ",
-         cam->position.x, cam->position.y, cam->position.z, fwd.x, fwd.y, fwd.z, cam->yaw,
-         cam->pitch);
-
-  fflush(stdout);
-}
+// static void print_camera_debug(const OBZ_Camera* cam)
+// {
+//   Vec3f fwd = obz_vec3f_norm(cam->direction);
+//
+//   printf("\r"
+//          "POS: %.2f %.2f %.2f | "
+//          "DIR: %.2f %.2f %.2f | "
+//          "YAW: %.2f | PITCH: %.2f   ",
+//          cam->position.x, cam->position.y, cam->position.z, fwd.x, fwd.y, fwd.z, cam->rot.yaw,
+//          cam->rot.pitch);
+//
+//   fflush(stdout);
+// }
 
 inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int length, int gap,
                                   OBZ_Color color)
@@ -75,11 +79,11 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
   }
 
   // ------------ Add mesh to scene ------------
-  static Vec3d pos  = {0, 0, 0};
-  static Rot3d rot  = {0, 0, 0};
-  static Rot3d spin = {0, 0, 0};
+  static Vec3f pos  = {0, 0, 0};
+  static Rot3f rot  = {0, 0, 0};
+  static Rot3f spin = {0, 0, 0};
 
-  int mid = obz_scene_add_mesh(scene, obj, pos, rot, 1, spin);
+  int mid = obz_scene_add_mesh(scene, obj, pos, rot, spin, OBZ_SCENE_OWN_MESH);
   if (mid < 0)
   {
     OBZ_LOG_FATAL(NULL, "init_scene: failed to add OBJ mesh to scene");

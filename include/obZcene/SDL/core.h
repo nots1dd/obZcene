@@ -49,7 +49,7 @@ typedef struct OBZ_Context OBZ_Context;
 typedef struct OBZ_Window  OBZ_Window;
 
 /* ---------- Callback types ---------- */
-typedef void (*OBZ_UpdateFn)(OBZ_Context* ctx, double dt);
+typedef void (*OBZ_UpdateFn)(OBZ_Context* ctx, float dt);
 typedef void (*OBZ_RenderFn)(OBZ_Context* ctx);
 typedef void (*OBZ_EventFn)(OBZ_Context* ctx, const void* event);
 

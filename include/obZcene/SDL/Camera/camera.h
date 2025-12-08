@@ -3,23 +3,25 @@
 
 #include "Math/simd/x86/trig_pack.h"
 #include "Math/vec.h"
+#include "obz_types.h"
 #include <stdbool.h>
 
 OBZ_BEGIN_CPP_DECLS
 
-typedef enum
+typedef struct
 {
-  OBZ_CAMERA_OK = 0,
-  OBZ_CAMERA_OUT_OF_BOUNDS
-} OBZ_CameraStatus;
+  float min;
+  float max;
+} OBZ_CamBound;
 
 typedef struct
 {
-  double min;
-  double max;
-} OBZ_CamBound;
+  float pitch; // rotation around X axis
+  float yaw;   // rotation around Y axis
+  float roll;  // rotation around Z axis
+} OBZ_CamRotation;
 
-OBZ_API_IMPL static void __OBZ_add_bound(OBZ_CamBound* bound, double min, double max)
+OBZ_API_IMPL static void __OBZ_add_bound(OBZ_CamBound* bound, float min, float max)
 {
   bound->min = min;
   bound->max = max;
@@ -27,19 +29,17 @@ OBZ_API_IMPL static void __OBZ_add_bound(OBZ_CamBound* bound, double min, double
 
 typedef struct
 {
-  Vec3d position;  // Camera position
-  Vec3d direction; // Normalized direction vector (camera forward)
-  Vec3d velocity;  // Forward velocity (units per second or per step)
+  Vec3f position;  // Camera position
+  Vec3f direction; // Normalized direction vector (camera forward)
+  Vec3f velocity;  // Forward velocity (units per second or per step)
 
-  double pitch; // rotation around X axis
-  double yaw;   // rotation around Y axis
-  double roll;  // rotation around Z axis
+  OBZ_CamRotation rot;
 
-  double aspect;
+  float aspect;
 
-  double fov;
-  double near;
-  double far;
+  float fov;
+  float near;
+  float far;
 
   OBZ_CamBound x_bound;
   OBZ_CamBound y_bound;
@@ -48,14 +48,17 @@ typedef struct
   bool has_bounds;
 } OBZ_Camera;
 
+static const Vec3f g_camera_world_up   = {0, 1, 0};
+static const Vec3f g_camera_world_init = {0, 0, 0};
+
 // Initialize camera with sensible defaults
-OBZ_API OBZ_Camera obz_camera_init(const Vec3d pos, double W, double H, double fov_deg);
-OBZ_API void       obz_camera_update(OBZ_Camera* cam, double dt);
-OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, double min_x, double max_x, double min_y,
-                                         double max_y, double min_z, double max_z);
+OBZ_API OBZ_Camera obz_camera_init(const Vec3f pos, float W, float H, float fov_deg);
+OBZ_API void       obz_camera_update(OBZ_Camera* cam, float dt);
+OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, OBZ_CamBound x_axis, OBZ_CamBound y_axis,
+                                         OBZ_CamBound z_axis);
 OBZ_API void       obz_camera_update_direction(OBZ_Camera* cam);
 // projection with FOV handling
-OBZ_API OBZ_CameraStatus obz_project_camera(Vec3d world_pos, OBZ_Camera cam, int* px, int* py,
+OBZ_API OBZ_Result obz_project_camera(Vec3f world_pos, OBZ_Camera cam, int* px, int* py,
                                             int sw, int sh);
 
 OBZ_END_CPP_DECLS

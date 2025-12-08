@@ -1,16 +1,16 @@
 #ifndef OBZ_SDL_MESH_H
 #define OBZ_SDL_MESH_H
 
-#include "Obj/obj.h"
 #include "Math/vec.h"
+#include "Obj/obj.h"
 
 OBZ_BEGIN_CPP_DECLS
 
 typedef struct
 {
-  Vec3d* verts; // vertices
-  Vec2d* uvs;   // texcoords
-  Vec3d* norms; // normals
+  Vec3f* verts; // vertices
+  Vec2f* uvs;   // texcoords
+  Vec3f* norms; // normals
 
   int* indices;      // vertex indices (triangles)
   int* uv_indices;   // uv indices

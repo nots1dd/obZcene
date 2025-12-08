@@ -55,7 +55,7 @@ double obz_vec2d_dot(Vec2d a, Vec2d b) { return a.x * b.x + a.y * b.y; }
 double obz_vec2d_len(Vec2d v)
 {
   double s = v.x * v.x + v.y * v.y;
-  return sqrt(s);
+  return OBZ__SIMD_sqrt_scalar_sse(s);
 }
 
 Vec2d obz_vec2d_norm(Vec2d v)
@@ -169,7 +169,10 @@ Vec3d obz_vec3d_rotate_z(Vec3d v, double rad)
   return (Vec3d){v.x * c - v.y * s, v.x * s + v.y * c, v.z};
 }
 
-double obz_vec3d_len(Vec3d v) { return sqrt(v.x * v.x + v.y * v.y + v.z * v.z); }
+double obz_vec3d_len(Vec3d v)
+{
+  return OBZ__SIMD_sqrt_scalar_sse(v.x * v.x + v.y * v.y + v.z * v.z);
+}
 
 Vec3d obz_vec3d_norm(Vec3d v)
 {

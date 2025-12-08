@@ -19,6 +19,10 @@ typedef enum
   OBZ_ERR_IMG,
   OBZ_ERR_ALLOC,
   OBZ_ERR_INVALID,
+  OBZ_ERR_SCENE,
+  OBZ_ERR_MESH,
+  OBZ_ERR_CAMERA,
+  OBZ_ERR_RENDER,
   OBZ_ERR_RUNTIME
 } OBZ_Result;
 
@@ -39,7 +43,7 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-typedef unsigned int uint;
+typedef unsigned int  uint;
 typedef unsigned char uchar;
 
 /* Floating point */

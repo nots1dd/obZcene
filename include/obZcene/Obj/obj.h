@@ -1,9 +1,9 @@
 #ifndef OBZ_OBZ_H
 #define OBZ_OBZ_H
 
+#include "Math/vec.h"
 #include "SDL/Textures/textures.h"
 #include "Utils/dynarray.h"
-#include "Math/vec.h"
 #include "obz_macros.h"
 
 OBZ_BEGIN_CPP_DECLS
@@ -34,10 +34,10 @@ typedef struct
 typedef struct
 {
   char         name[64];
-  Vec3d        Kd;     /* diffuse color (0..1) */
-  Vec3d        Ka;     /* ambient color (0..1) */
-  Vec3d        Ks;     /* specular color (0..1) */
-  double       Ns;     /* shininess */
+  Vec3f        Kd;     /* diffuse color (0..1) */
+  Vec3f        Ka;     /* ambient color (0..1) */
+  Vec3f        Ks;     /* specular color (0..1) */
+  float        Ns;     /* shininess */
   OBZ_Texture* map_Kd; /* optional texture path (map_Kd) */
 } OBZ_ObjMtl;
 

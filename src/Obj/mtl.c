@@ -40,9 +40,9 @@ OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
 
   memset(&cur, 0, sizeof(cur));
   cur.Ns = 0.0f;
-  cur.Kd = (Vec3d){1.0f, 1.0f, 1.0f};
-  cur.Ka = (Vec3d){0.0f, 0.0f, 0.0f};
-  cur.Ks = (Vec3d){0.0f, 0.0f, 0.0f};
+  cur.Kd = (Vec3f){1.0f, 1.0f, 1.0f};
+  cur.Ka = (Vec3f){0.0f, 0.0f, 0.0f};
+  cur.Ks = (Vec3f){0.0f, 0.0f, 0.0f};
 
   while (fgets(line, sizeof(line), fp))
   {
@@ -57,7 +57,7 @@ OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
         __OBZ_push_material(out, &cur);
         memset(&cur, 0, sizeof(cur));
         cur.Ns = 0.0f;
-        cur.Kd = (Vec3d){1, 1, 1};
+        cur.Kd = (Vec3f){1, 1, 1};
       }
       char name[64] = {0};
       sscanf(p + 6, "%63s", name);
@@ -68,22 +68,22 @@ OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out)
 
     if (in_mat && strncmp(p, "Kd", 2) == 0 && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%lf %lf %lf", &cur.Kd.x, &cur.Kd.y, &cur.Kd.z);
+      sscanf(p + 2, "%f %f %f", &cur.Kd.x, &cur.Kd.y, &cur.Kd.z);
       continue;
     }
     if (in_mat && strncmp(p, "Ka", 2) == 0 && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%lf %lf %lf", &cur.Ka.x, &cur.Ka.y, &cur.Ka.z);
+      sscanf(p + 2, "%f %f %f", &cur.Ka.x, &cur.Ka.y, &cur.Ka.z);
       continue;
     }
     if (in_mat && strncmp(p, "Ks", 2) == 0 && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%lf %lf %lf", &cur.Ks.x, &cur.Ks.y, &cur.Ks.z);
+      sscanf(p + 2, "%f %f %f", &cur.Ks.x, &cur.Ks.y, &cur.Ks.z);
       continue;
     }
     if (in_mat && strncmp(p, "Ns", 2) == 0 && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%lf", &cur.Ns);
+      sscanf(p + 2, "%f", &cur.Ns);
       continue;
     }
     if (in_mat && strncmp(p, "map_Kd", 6) == 0 && isspace((uchar)p[6]))

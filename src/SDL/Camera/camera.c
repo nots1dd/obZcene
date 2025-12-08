@@ -1,8 +1,9 @@
 #include "SDL/Camera/camera.h"
 #include "Math/clamp.h"
+#include "Math/vec.h"
 #include <math.h>
 
-OBZ_Camera obz_camera_init(const Vec3d pos, double W, double H, double fov_deg)
+OBZ_Camera obz_camera_init(const Vec3f pos, float W, float H, float fov_deg)
 {
   // ---------------------- DEG -> RAD + ASPECT RATIO ----------------------
   /*
@@ -19,12 +20,12 @@ OBZ_Camera obz_camera_init(const Vec3d pos, double W, double H, double fov_deg)
   */
   // ----------------------------------------------------------------------
   OBZ_Camera cam = {.position  = pos,
-                    .direction = obz_vec3d(0, 0, 0),
-                    .velocity  = obz_vec3d(0, 0, 0),
+                    .direction = obz_vec3f(0, 0, 0),
+                    .velocity  = obz_vec3f(0, 0, 0),
 
-                    .pitch = 0.0f,
-                    .yaw   = 0.0f,
-                    .roll  = 0.0f,
+                    .rot.pitch = 0.0f,
+                    .rot.yaw   = 0.0f,
+                    .rot.roll  = 0.0f,
 
                     .fov    = fov_deg * M_PI / 180.0f,
                     .aspect = W / H,
@@ -34,7 +35,7 @@ OBZ_Camera obz_camera_init(const Vec3d pos, double W, double H, double fov_deg)
   return cam;
 }
 
-void obz_camera_update(OBZ_Camera* cam, double dt)
+void obz_camera_update(OBZ_Camera* cam, float dt)
 {
   // ---------------------- POSITION INTEGRATION (Euler) ----------------------
   /*
@@ -68,13 +69,13 @@ void obz_camera_update(OBZ_Camera* cam, double dt)
   }
 }
 
-void obz_camera_set_bounds(OBZ_Camera* cam, double min_x, double max_x, double min_y, double max_y,
-                           double min_z, double max_z)
+void obz_camera_set_bounds(OBZ_Camera* cam, OBZ_CamBound x_axis, OBZ_CamBound y_axis,
+                           OBZ_CamBound z_axis)
 {
   cam->has_bounds = true;
-  __OBZ_add_bound(&cam->x_bound, min_x, max_x);
-  __OBZ_add_bound(&cam->y_bound, min_y, max_y);
-  __OBZ_add_bound(&cam->z_bound, min_z, max_z);
+  __OBZ_add_bound(&cam->x_bound, x_axis.min, x_axis.max);
+  __OBZ_add_bound(&cam->y_bound, y_axis.min, y_axis.max);
+  __OBZ_add_bound(&cam->z_bound, z_axis.min, z_axis.max);
 }
 
 void obz_camera_update_direction(OBZ_Camera* cam)
@@ -95,24 +96,24 @@ void obz_camera_update_direction(OBZ_Camera* cam)
       stable unit length.
   */
   // ---------------------------------------------------------------------------
-  double cp = cos(cam->pitch);
-  double sp = sin(cam->pitch);
-  double cy = cos(cam->yaw);
-  double sy = sin(cam->yaw);
+  float cp = cos(cam->rot.pitch);
+  float sp = sin(cam->rot.pitch);
+  float cy = cos(cam->rot.yaw);
+  float sy = sin(cam->rot.yaw);
 
   cam->direction.x = cp * sy;
   cam->direction.y = sp;
   cam->direction.z = -cp * cy;
-  cam->direction   = obz_vec3d_norm(cam->direction);
+  cam->direction   = obz_vec3f_norm(cam->direction);
 }
 
 // Projects a world-space point into pixel coords.
 // Returns 0 on success, 1 if behind near/far or degenerate.
-OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam, int* px, int* py,
+OBZ_Result obz_project_camera(const Vec3f world_pos, const OBZ_Camera cam, int* px, int* py,
                                     int sw, int sh)
 {
   if (!px || !py)
-    return OBZ_CAMERA_OUT_OF_BOUNDS;
+    return OBZ_ERR_CAMERA;
 
   // ---------------------- CAMERA BASIS (Right/Up/Forward) ----------------------
   /*
@@ -135,18 +136,17 @@ OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam,
       These vectors form the rotation component of the view matrix.
   */
   // -------------------------------------------------------------------------------
-  Vec3d       fwd      = obz_vec3d_norm(cam.direction);
-  const Vec3d world_up = {0, 1, 0};
+  Vec3f fwd = obz_vec3f_norm(cam.direction);
 
-  Vec3d right = obz_vec3d_cross(world_up, fwd);
-  if (obz_vec3d_len(right) < 1e-6f)
+  Vec3f right = obz_vec3f_cross(g_camera_world_up, fwd);
+  if (obz_vec3f_len(right) < 1e-6f)
   {
     // Degenerate case: camera looking straight up/down.
-    right = obz_vec3d_cross((Vec3d){0, 0, 1}, fwd);
+    right = obz_vec3f_cross((Vec3f){0, 0, 1}, fwd);
   }
-  right = obz_vec3d_norm(right);
+  right = obz_vec3f_norm(right);
 
-  Vec3d up = obz_vec3d_cross(fwd, right);
+  Vec3f up = obz_vec3f_cross(fwd, right);
 
   // ---------------------- TRANSFORM: WORLD -> CAMERA SPACE ------------------------
   /*
@@ -162,10 +162,10 @@ OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam,
       This effectively applies the inverse of the rotation part of the view matrix.
   */
   // --------------------------------------------------------------------------------
-  Vec3d  d = obz_vec3d_sub(world_pos, cam.position);
-  double x = obz_vec3d_dot(d, right);
-  double y = obz_vec3d_dot(d, up);
-  double z = obz_vec3d_dot(d, fwd);
+  Vec3f d = obz_vec3f_sub(world_pos, cam.position);
+  float x = obz_vec3f_dot(d, right);
+  float y = obz_vec3f_dot(d, up);
+  float z = obz_vec3f_dot(d, fwd);
 
   // ---------------------- NEAR/FAR CLIPPING ----------------------
   /*
@@ -178,7 +178,7 @@ OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam,
   */
   // ----------------------------------------------------------------
   if (z <= cam.near || z >= cam.far)
-    return OBZ_CAMERA_OUT_OF_BOUNDS;
+    return OBZ_ERR_CAMERA;
 
   // ---------------------- PERSPECTIVE PROJECTION ----------------------
   /*
@@ -196,11 +196,11 @@ OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam,
           ndc ∈ [-1, +1]
   */
   // ----------------------------------------------------------------------
-  double f = 1.0f / tan(cam.fov * 0.5f);
+  float f = 1.0f / tanf(cam.fov * 0.5f);
 
   // NDC coordinates (normalized device coords)
-  double ndc_x = (x * f) / (z * cam.aspect);
-  double ndc_y = (y * f) / z;
+  float ndc_x = (x * f) / (z * cam.aspect);
+  float ndc_y = (y * f) / z;
 
   // ---------------------- NDC -> SCREEN COORDINATES ----------------------
   /*
@@ -215,5 +215,5 @@ OBZ_CameraStatus obz_project_camera(const Vec3d world_pos, const OBZ_Camera cam,
   *px = (int)(sw * 0.5f + ndc_x * sw * 0.5f);
   *py = (int)(sh * 0.5f - ndc_y * sh * 0.5f);
 
-  return OBZ_CAMERA_OK;
+  return OBZ_OK;
 }

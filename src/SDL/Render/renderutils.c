@@ -1,11 +1,12 @@
 #include "SDL/Render/renderutils.h"
 #include "Math/clamp.h"
+#include "Math/minimax.h"
 #include <math.h>
 
-static const double INV_255 = 0.00392156862745098f; // 1 / 255
+static const float INV_255 = 0.00392156862745098f; // 1 / 255
 
-void __OBZ_barycentric_persp(Vec3d v0, Vec3d v1, Vec3d v2, int x, int y, double* w0, double* w1,
-                             double* w2)
+void __OBZ_barycentric_persp(Vec3f v0, Vec3f v1, Vec3f v2, int x, int y, float* w0, float* w1,
+                             float* w2)
 {
   // ---------------------- BARYCENTRIC COORDS (2D) ------------------------------------------------
   /*
@@ -17,7 +18,7 @@ void __OBZ_barycentric_persp(Vec3d v0, Vec3d v1, Vec3d v2, int x, int y, double*
       Denominator (area*2) computed as:
           denom = edge(v0, v1, v2)
 
-      Use double precision for numerical stability, and scale-aware epsilon:
+      Use double precision for numerical stability, and scale-aware epsilon: {DOUBTFUL; USING FLOAT FOR NOW!}
           area_eps = 1e-6 * (1 + max(|v0.x|, |v0.y|, |v1.x|, |v1.y|, |v2.x|, |v2.y|))
 
       Reject degenerate triangles:
@@ -44,32 +45,32 @@ void __OBZ_barycentric_persp(Vec3d v0, Vec3d v1, Vec3d v2, int x, int y, double*
   */
   // --------------------------------------------------------------------------------------------
 
-  const double px = x + 0.5;
-  const double py = y + 0.5;
+  const float px = x + 0.5;
+  const float py = y + 0.5;
 
-  // Compute triangle "area" (denominator) in double for stability
-  const double denom = __OBZ_edge_func_d(&v0, &v1, v2.x, v2.y);
+  const float denom = __OBZ_edge_func_f(&v0, &v1, v2.x, v2.y);
 
   // Scale-aware epsilon: max coord among triangle vertices
-  double       max_coord = fmax(fmax(fabs(v0.x), fabs(v0.y)),
-                                fmax(fmax(fabs(v1.x), fabs(v1.y)), fmax(fabs(v2.x), fabs(v2.y))));
-  const double area_eps  = 1e-6 * (1.0 + max_coord);
+  float max_coord =
+    obz_maxf(obz_maxf(fabsf(v0.x), fabsf(v0.y)),
+             obz_maxf(obz_maxf(fabsf(v1.x), fabsf(v1.y)), obz_maxf(fabsf(v2.x), fabsf(v2.y))));
+  const float area_eps = 1e-6 * (1.0 + max_coord);
 
-  if (fabs(denom) < area_eps)
+  if (fabsf(denom) < area_eps)
   {
     *w0 = *w1 = *w2 = -1.0f;
     return;
   }
 
   // Edge functions (for barycentric weights)
-  const double e0 = __OBZ_edge_func_d(&v1, &v2, px, py); // for w0
-  const double e1 = __OBZ_edge_func_d(&v2, &v0, px, py); // for w1
+  const float e0 = __OBZ_edge_func_f(&v1, &v2, px, py); // for w0
+  const float e1 = __OBZ_edge_func_f(&v2, &v0, px, py); // for w1
 
   // Normalize orientation to ensure consistent winding
-  const double sign = denom > 0.0 ? 1.0 : -1.0;
-  const double se0  = e0 * sign;
-  const double se1  = e1 * sign;
-  const double se2  = (denom - e0 - e1) * sign;
+  const float sign = denom > 0.0 ? 1.0 : -1.0;
+  const float se0  = e0 * sign;
+  const float se1  = e1 * sign;
+  const float se2  = (denom - e0 - e1) * sign;
 
   // Top-left edge inclusion (inline to avoid branching function call)
   int accept0 = (se0 > 0.0) || (se0 == 0.0 && ((v2.y < v1.y) || (v2.y == v1.y && v2.x > v1.x)));
@@ -82,14 +83,14 @@ void __OBZ_barycentric_persp(Vec3d v0, Vec3d v1, Vec3d v2, int x, int y, double*
     return;
   }
 
-  const double invDen = 1.0 / denom;
-  *w0                 = (e0 * invDen);
-  *w1                 = (e1 * invDen);
-  *w2                 = 1.0f - *w0 - *w1;
+  const float invDen = 1.0 / denom;
+  *w0                = (e0 * invDen);
+  *w1                = (e1 * invDen);
+  *w2                = 1.0f - *w0 - *w1;
 }
 
-Vec2d __OBZ_interp_uv_persp(Vec2d uv0, Vec2d uv1, Vec2d uv2, double one_by_z0, double one_by_z1,
-                            double one_by_z2, double w0, double w1, double w2)
+Vec2f __OBZ_interp_uv_persp(Vec2f uv0, Vec2f uv1, Vec2f uv2, float one_by_z0, float one_by_z1,
+                            float one_by_z2, float w0, float w1, float w2)
 {
   // ---------------------- PERSPECTIVE-CORRECT INTERPOLATION ----------------------
   /*
@@ -110,25 +111,25 @@ Vec2d __OBZ_interp_uv_persp(Vec2d uv0, Vec2d uv1, Vec2d uv2, double one_by_z0, d
       This prevents texture distortion on steep surfaces.
   */
   // -------------------------------------------------------------------------------
-  const double u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
-  const double v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
+  const float u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
+  const float v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
 
   // Denominator for perspective-correct interpolation
-  double       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
-  double       mag   = fmax(fmax(fabs(one_by_z0), fabs(one_by_z1)), fabs(one_by_z2));
-  const double eps   = 1e-8f * fmax(1.0f, mag);
+  float       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
+  float       mag   = obz_maxf(obz_maxf(fabsf(one_by_z0), fabsf(one_by_z1)), fabsf(one_by_z2));
+  const float eps   = 1e-8f * obz_maxf(1.0f, mag);
 
   if (denom <= eps)
   {
     // fallback to affine interpolation
-    return (Vec2d){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
+    return (Vec2f){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
   }
 
-  double iz = 1.0f / denom;
-  return (Vec2d){u * iz, v * iz};
+  const float iz = 1.0f / denom;
+  return (Vec2f){u * iz, v * iz};
 }
 
-bool __OBZ_triangle_offscreen(Vec3d p0, Vec3d p1, Vec3d p2, int W, int H)
+bool __OBZ_triangle_offscreen(Vec3f p0, Vec3f p1, Vec3f p2, int W, int H)
 {
   // ---------------------- TRIVIAL FRUSTUM REJECTION ----------------------
   /*
@@ -145,7 +146,7 @@ bool __OBZ_triangle_offscreen(Vec3d p0, Vec3d p1, Vec3d p2, int W, int H)
           (p0.z <= 0 && p1.z <= 0 && p2.z <= 0));
 }
 
-OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2d uv, OBZ_Color diffuse)
+OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2f uv, OBZ_Color diffuse)
 {
   // ---------------------- TEXTURE SAMPLING (UV MAPPING) ----------------------
   /*
@@ -165,8 +166,8 @@ OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2d uv, OBZ_Color diffu
     return __OBZ_pack_color(diffuse);
 
   // Clamp UV to [0,1]
-  double u = obz_clampd01(uv.x);
-  double v = obz_clampd01(uv.y);
+  float u = obz_clampf01(uv.x);
+  float v = obz_clampf01(uv.y);
 
   int tx = (int)(u * (tex->width - 1));
   int ty = (int)((1.0f - v) * (tex->height - 1));
@@ -189,7 +190,7 @@ OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2d uv, OBZ_Color diffu
                                    (OBZ_channel)(p[2] * diffuse.b * INV_255), p[3]);
 }
 
-void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const double* zbuf_clear_ptr)
+void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const float* zbuf_clear_ptr)
 {
   // ---------------------- DEPTH BUFFER CLEAR ----------------------
   /*

@@ -36,7 +36,7 @@ OBZ_RendererContext* obz_render_context_init(int width, int height)
     return NULL;
   }
 
-  renctx->zbuffer = obz_arr_create(sizeof(double));
+  renctx->zbuffer = obz_arr_create(sizeof(float));
   obz_arr_reserve(&renctx->zbuffer, pixel_count);
 
   OBZ_ASSERT(obz_arr_exists(&renctx->zbuffer) == false,
@@ -58,18 +58,18 @@ void obz_render_clear(OBZ_RendererContext* ctx, OBZ_pixel clear_color)
     ctx->framebuffer[i] = clear_color;
 
   // clear zbuf if it exists
-  const double z_clear = OBZ_Z_BUF_CLEAR;
+  const float z_clear = OBZ_Z_BUF_CLEAR;
   __OBZ_render_clear_depth_buffer(&ctx->zbuffer, n, &z_clear);
 }
 
-void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, double z, OBZ_pixel color)
+void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel color)
 {
   if (x < 0 || x >= ctx->width || y < 0 || y >= ctx->height)
     return;
 
   int idx = y * ctx->width + x;
 
-  double* zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, double) : NULL;
+  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
 
   if (zb)
   {
@@ -84,9 +84,9 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, double z, OBZ_pixe
 // -----------------------------------------------------------------------------
 // TRIANGLE RASTERIZATION: SCREEN-SPACE BARYCENTRIC + DEPTH + TEXTURE INTERP
 // -----------------------------------------------------------------------------
-static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, Vec3d v2, Vec2d uv0,
-                                  Vec2d uv1, Vec2d uv2, double one_by_z0, double one_by_z1,
-                                  double one_by_z2, OBZ_Texture* tex, OBZ_Color diffuse,
+static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0,
+                                  Vec2f uv1, Vec2f uv2, float one_by_z0, float one_by_z1,
+                                  float one_by_z2, OBZ_Texture* tex, OBZ_Color diffuse,
                                   int use_color_only)
 {
   if (!ctx)
@@ -113,7 +113,7 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, 
     return;
 
   // Depth buffer pointer once (avoid repeated calls)
-  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, double) : NULL;
+  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
 
   // ------------------------ SOLID COLOR PRE-COMPUTE --------------------------
   /*
@@ -141,7 +141,7 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, 
   {
     for (int x = minx; x <= maxx; ++x)
     {
-      double w0, w1, w2;
+      float w0, w1, w2;
 
       // --------------------- BARYCENTRIC (EDGE FUNCTIONS) ---------------------
       /*
@@ -165,8 +165,8 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, 
           Used for depth test.
       */
       // ------------------------------------------------------------------------
-      double z   = w0 * v0.z + w1 * v1.z + w2 * v2.z;
-      int    idx = y * ctx->width + x;
+      float z   = w0 * v0.z + w1 * v1.z + w2 * v2.z;
+      int   idx = y * ctx->width + x;
 
       // ------------------------------- DEPTH TEST -----------------------------
       /*
@@ -206,7 +206,7 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, 
             This fixes distortion seen with linear UV interpolation.
         */
         // ----------------------------------------------------------------------
-        Vec2d uv =
+        Vec2f uv =
           __OBZ_interp_uv_persp(uv0, uv1, uv2, one_by_z0, one_by_z1, one_by_z2, w0, w1, w2);
         out_buffer = __OBZ_sample_texture(tex, uv, diffuse);
       }
@@ -220,8 +220,8 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3d v0, Vec3d v1, 
 // MESH RENDERING WITH CAMERA VIEW/PROJECTION
 // Transforms mesh into camera space → projects → rasterizes each triangle.
 // -----------------------------------------------------------------------------
-void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mesh, double pitch,
-                            double yaw, double roll, OBZ_Camera cam)
+void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3f pos, OBZ_Mesh3D* mesh,
+                            OBZ_CamRotation mesh_rot, OBZ_Camera cam)
 {
   __OBZ_RETURN_VOID_IF_NULL(ctx);
   __OBZ_RETURN_VOID_IF_NULL(mesh);
@@ -238,11 +238,11 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mes
       one_by_z     : reciprocals of depth for perspective-correct interpolation
   */
   // --------------------------------------------------------------------------
-  Vec3d* verts_world =
-    obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3d), OBZ_ARENA_DEFAULT_ALIGNMENT);
-  Vec3d* verts_screen =
-    obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3d), OBZ_ARENA_DEFAULT_ALIGNMENT);
-  double* one_by_z = obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(double), sizeof(double));
+  auto verts_world =
+    (Vec3f*)obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3f), OBZ_ARENA_DEFAULT_ALIGNMENT);
+  auto verts_screen =
+    (Vec3f*)obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(Vec3f), OBZ_ARENA_DEFAULT_ALIGNMENT);
+  auto one_by_z = (float*)obz_arena_alloc(ctx->arena_alloc, nverts * sizeof(float), sizeof(float));
 
   // -------------------------- OBJECT ROTATION (XYZ) --------------------------
   /*
@@ -256,12 +256,12 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mes
       Produces full orientation of object in world space.
   */
   // --------------------------------------------------------------------------
-  float cp = cosf(pitch), sp = sinf(pitch);
-  float cy = cosf(yaw), sy = sinf(yaw);
-  float cr = cosf(roll), sr = sinf(roll);
+  float cp = cosf(mesh_rot.pitch), sp = sinf(mesh_rot.pitch);
+  float cy = cosf(mesh_rot.yaw), sy = sinf(mesh_rot.yaw);
+  float cr = cosf(mesh_rot.roll), sr = sinf(mesh_rot.roll);
 
   // Camera forward direction (normalized)
-  Vec3d cam_fwd = obz_vec3d_norm(cam.direction);
+  Vec3f cam_fwd = obz_vec3f_norm(cam.direction);
 
   // ------------------ TRANSFORM VERTICES → WORLD → CAMERA → SCREEN -----------
   /*
@@ -279,28 +279,28 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mes
   // --------------------------------------------------------------------------
   for (int i = 0; i < nverts; i++)
   {
-    Vec3d v = mesh->verts[i];
+    Vec3f v = mesh->verts[i];
 
     // Rotate: yaw → pitch → roll
-    double x = v.x, y = v.y, z = v.z;
-    double world_x = x * cy * cr - y * sr - z * sy * cr + pos.x;
-    double world_y = x * cy * sr + y * cr - z * sy * sr + pos.y;
-    double world_z = x * sy + y * sp + z * cy * cp + pos.z;
+    float x = v.x, y = v.y, z = v.z;
+    float world_x = x * cy * cr - y * sr - z * sy * cr + pos.x;
+    float world_y = x * cy * sr + y * cr - z * sy * sr + pos.y;
+    float world_z = x * sy + y * sp + z * cy * cp + pos.z;
 
-    Vec3d world    = {world_x, world_y, world_z};
+    Vec3f world    = {world_x, world_y, world_z};
     verts_world[i] = world;
 
     // Camera depth = projection on camera forward vector
-    Vec3d  view_vec = obz_vec3_sub(world, cam.position);
-    double vz       = obz_vec3d_dot(view_vec, cam_fwd);
+    Vec3f view_vec = obz_vec3_sub(world, cam.position);
+    float vz       = obz_vec3f_dot(view_vec, cam_fwd);
 
     // Screen projection
     int sx = 0, sy = 0;
     if (obz_project_camera(world, cam, &sx, &sy, ctx->width, ctx->height) ==
-        OBZ_CAMERA_OUT_OF_BOUNDS)
+        OBZ_ERR_CAMERA)
       continue;
 
-    verts_screen[i] = (Vec3d){(double)sx, (double)sy, vz};
+    verts_screen[i] = (Vec3f){(float)sx, (float)sy, vz};
     one_by_z[i]     = (vz > 0.0f ? 1.0f / vz : 0.0f);
   }
 
@@ -336,9 +336,9 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mes
         (unsigned)i2 >= (unsigned)nverts)
       continue;
 
-    Vec3d p0 = verts_screen[i0];
-    Vec3d p1 = verts_screen[i1];
-    Vec3d p2 = verts_screen[i2];
+    Vec3f p0 = verts_screen[i0];
+    Vec3f p1 = verts_screen[i1];
+    Vec3f p2 = verts_screen[i2];
 
     // --------------------- FRUSTUM + SCREEN CLIPPING ------------------------
     /*
@@ -394,7 +394,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3d pos, OBZ_Mesh3D* mes
             uv2 = uvs[uvIdx2]
     */
     // ------------------------------------------------------------------------
-    static Vec2d uv0 = {0, 0}, uv1 = {0, 0}, uv2 = {0, 0};
+    static Vec2f uv0 = {0, 0}, uv1 = {0, 0}, uv2 = {0, 0};
     if (mesh->uvs && mesh->uv_indices)
     {
       int ti0 = uidx[t * 3 + 0];

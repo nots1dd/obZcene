@@ -5,6 +5,8 @@
 
 DECLARE_OBZ_GLOBAL_LOGGER();
 
+static OBZ_CamRotation mesh_rot = {0, 0, 0};
+
 // you dont have to modify main.c AT ALL. Check out obZscene.h!
 static void render(OBZ_Context* ctx)
 {
@@ -12,20 +14,21 @@ static void render(OBZ_Context* ctx)
 
   OBZ_SceneEntry it;
   obz_scene_iter_begin(ctx->scene, &it);
-  while (obz_scene_iter_next(ctx->scene, &it))
+  while (obz_scene_iter_next(ctx->scene, &it) != OBZ_ERR_SCENE)
   {
     OBZ_Mesh3D* mesh_i = it.mesh;
+    mesh_rot           = (OBZ_CamRotation){it.rot->x, it.rot->y, it.rot->z};
 
-    obz_render_mesh_camera(ctx->renctx, *it.pos, mesh_i, it.rot->x, it.rot->y, it.rot->z, ctx->cam);
+    obz_render_mesh_camera(ctx->renctx, *it.pos, mesh_i, mesh_rot, ctx->cam);
   }
 
   // CROSSHAIRS (CUSTOM!)
-  draw_crosshair(ctx->renctx, W / 2, H / 2, 20, 2, COLOR_GOLD);
+  draw_crosshair(ctx->renctx, g_W / 2, g_H / 2, 20, 2, COLOR_GOLD);
 
   obz_arena_reset(ctx->renctx->arena_alloc);
 }
 
-static void update(OBZ_Context* ctx, double dt)
+static void update(OBZ_Context* ctx, float dt)
 {
   if (!ctx || !ctx->scene)
     return;
@@ -41,9 +44,9 @@ static void update(OBZ_Context* ctx, double dt)
   (void)in;
 }
 
-void camera_move(OBZ_Camera* cam, const ui8* keyboard, double speed)
+void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
 {
-  Vec3d input = {0, 0, 0};
+  Vec3f input = {0, 0, 0};
 
   if (keyboard[KC_W])
     input.z += 1;
@@ -58,29 +61,28 @@ void camera_move(OBZ_Camera* cam, const ui8* keyboard, double speed)
   if (keyboard[KC_BACKSPACE])
     input.y -= 1;
 
-  if (obz_vec3d_len(input) < 1e-6f)
+  if (obz_vec3f_len(input) < 1e-6f)
   {
-    cam->velocity = obz_vec3d(0, 0, 0);
+    cam->velocity = obz_vec3f(0, 0, 0);
     return;
   }
 
-  input = obz_vec3d_norm(input);
+  input = obz_vec3f_norm(input);
 
-  Vec3d              fwd      = obz_vec3d_norm(cam->direction);
-  static const Vec3d world_up = {0, 1, 0};
+  Vec3f fwd = obz_vec3f_norm(cam->direction);
 
-  Vec3d right = obz_vec3d_cross(world_up, fwd);
-  right       = obz_vec3d_norm(right);
+  Vec3f right = obz_vec3f_cross(g_camera_world_up, fwd);
+  right       = obz_vec3f_norm(right);
 
-  if (obz_vec3d_len(right) < 1e-6f)
-    right = obz_vec3d_norm(obz_vec3d_cross((Vec3d){0, 0, 1}, fwd));
+  if (obz_vec3f_len(right) < 1e-6f)
+    right = obz_vec3f_norm(obz_vec3f_cross((Vec3f){0, 0, 1}, fwd));
 
-  Vec3d up = obz_vec3d_cross(fwd, right);
+  Vec3f up = obz_vec3f_cross(fwd, right);
 
   // Compute velocity
   cam->velocity = obz_vec3_add(
-    obz_vec3_add(obz_vec3d_mulf(fwd, input.z * speed), obz_vec3d_mulf(right, input.x * speed)),
-    obz_vec3d_mulf(up, input.y * speed));
+    obz_vec3_add(obz_vec3f_mulf(fwd, input.z * speed), obz_vec3f_mulf(right, input.x * speed)),
+    obz_vec3f_mulf(up, input.y * speed));
 }
 
 static void event(OBZ_Context* ctx, const void* ev)
@@ -117,11 +119,11 @@ static void event(OBZ_Context* ctx, const void* ev)
   if (in->mouse_left) // Only rotate when left mouse held
   {
     float sensitivity = 0.006f;
-    ctx->cam.yaw += dx * sensitivity;
-    ctx->cam.pitch -= dy * sensitivity;
+    ctx->cam.rot.yaw += dx * sensitivity;
+    ctx->cam.rot.pitch -= dy * sensitivity;
 
     // Clamp pitch
-    ctx->cam.pitch = obz_clampf(ctx->cam.pitch, -1.5f, 1.5f);
+    ctx->cam.rot.pitch = obz_clampf(ctx->cam.rot.pitch, -1.5f, 1.5f);
   }
 
   last_mx = in->mouse_x;
@@ -131,25 +133,24 @@ static void event(OBZ_Context* ctx, const void* ev)
   obz_camera_update_direction(&ctx->cam);
 
   // Camera movement
-  double speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
+  float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
   camera_move(&ctx->cam, keyboard, speed);
 }
 
 int main(int argc, char** argv)
 {
   OBZ_Callbacks cb  = {update, render, event};
-  OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
+  OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)g_W, (int)g_H}, NULL);
 
-  ctx->cam                = obz_camera_init((Vec3d){0, 0, 0}, W, H, 75.0f);
+  ctx->cam                = obz_camera_init(g_camera_world_init, g_W, g_H, 75.0f);
   ctx->timer.perf_freq    = SDL_GetPerformanceFrequency();
   ctx->timer.last_counter = SDL_GetPerformanceCounter();
-  obz_camera_set_bounds(&ctx->cam, -W / 2 + margin, W / 2 - margin, -H / 2 + margin, H / 2 - margin,
-                        -D / 2 + margin, D / 2 - margin);
+  obz_camera_set_bounds(&ctx->cam, g_x_axis, g_y_axis, g_z_axis);
 
   ctx->win_desc =
     &(OBZ_WindowDesc){.title      = "3D Room Demo - WASD + Mouse to move, Hold Left Click to look",
-                      .dim.width  = W,
-                      .dim.height = H,
+                      .dim.width  = ctx->renctx->width,
+                      .dim.height = ctx->renctx->height,
                       .resizable  = OBZ_TRUE};
 
   obz_window_create(ctx);
@@ -164,5 +165,5 @@ int main(int argc, char** argv)
   // Cleanup
   obz_destroy(ctx);
 
-  return 0;
+  return OBZ_OK;
 }
