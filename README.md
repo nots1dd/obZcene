@@ -2,7 +2,7 @@
 
 A truly obscene piece of work.
 
-[obZcene](./assets/obZcene.mp4)
+![obZcene](./assets/example.png)
 
 WIP
 
