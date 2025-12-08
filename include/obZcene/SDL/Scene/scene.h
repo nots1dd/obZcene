@@ -7,15 +7,16 @@
 
 OBZ_BEGIN_CPP_DECLS
 
-typedef Vec3 Rot3;
+typedef Vec3d Rot3d;
+typedef Vec3f Rot3f;
 
 typedef struct
 {
   int         index;
   OBZ_Mesh3D* mesh;
-  Vec3*       pos;
-  Rot3*       rot;
-  Rot3*       rotSpeed;
+  Vec3d*      pos;
+  Rot3d*      rot;
+  Rot3d*      rotSpeed;
 } OBZ_SceneEntry;
 
 typedef enum : uint8_t
@@ -27,9 +28,9 @@ typedef enum : uint8_t
 typedef struct
 {
   OBZ_Mesh3D**       meshes;
-  Vec3*              positions;
-  Rot3*              rotations;
-  Rot3*              rotSpeeds;
+  Vec3d*             positions;
+  Rot3d*             rotations;
+  Rot3d*             rotSpeeds;
   OBZ_MeshOwnership* owned;
 
   int   count;
@@ -42,22 +43,15 @@ OBZ_API OBZ_Scene* obz_scene_create(void);
 OBZ_API void       obz_scene_destroy(OBZ_Scene* s);
 
 /* ---- Add mesh ---- */
-OBZ_API int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int own_mesh,
-                               Rot3 rotSpeed);
+OBZ_API int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3d pos, Rot3d rot, int own_mesh,
+                               Rot3d rotSpeed);
 
 /* ---- Update ---- */
-OBZ_API void obz_scene_update(OBZ_Scene* s, float dt);
+OBZ_API void obz_scene_update(OBZ_Scene* s, double dt);
 
 /* ---- Iteration ---- */
 OBZ_API void obz_scene_iter_begin(OBZ_Scene* s, OBZ_SceneEntry* e);
 OBZ_API int  obz_scene_iter_next(OBZ_Scene* s, OBZ_SceneEntry* e);
-
-/* ---- Utility ---- */
-OBZ_FORCE_INLINE static Rot3 obz_deg_to_rad3(Rot3 d)
-{
-  const float k = OBZ_ONE_RAD_IN_DEG;
-  return (Rot3){d.x * k, d.y * k, d.z * k};
-}
 
 OBZ_END_CPP_DECLS
 

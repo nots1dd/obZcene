@@ -1,6 +1,7 @@
 #ifndef OBZ_COLORS_H
 #define OBZ_COLORS_H
 
+#include "Math/clamp.h"
 #include "obz_macros.h"
 #include "obz_types.h"
 #include <stdint.h>
@@ -38,6 +39,11 @@ OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color_channels(OBZ_channel r, OBZ_c
 OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
 {
   return __OBZ_pack_color_channels(c.r, c.g, c.b, c.a);
+}
+
+OBZ_API_IMPL static OBZ_channel __OBZ_clampf_to_channel(float x)
+{
+  return (OBZ_channel)obz_clampf_to_int(x, 255);
 }
 
 /* Common opaque utf8-ish names */

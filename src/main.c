@@ -25,7 +25,7 @@ static void render(OBZ_Context* ctx)
   obz_arena_reset(ctx->renctx->arena_alloc);
 }
 
-static void update(OBZ_Context* ctx, float dt)
+static void update(OBZ_Context* ctx, double dt)
 {
   if (!ctx || !ctx->scene)
     return;
@@ -41,9 +41,9 @@ static void update(OBZ_Context* ctx, float dt)
   (void)in;
 }
 
-void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
+void camera_move(OBZ_Camera* cam, const ui8* keyboard, double speed)
 {
-  Vec3 input = {0, 0, 0};
+  Vec3d input = {0, 0, 0};
 
   if (keyboard[KC_W])
     input.z += 1;
@@ -58,29 +58,29 @@ void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
   if (keyboard[KC_BACKSPACE])
     input.y -= 1;
 
-  if (obz_vec3_len(input) < 1e-6f)
+  if (obz_vec3d_len(input) < 1e-6f)
   {
-    cam->velocity = obz_vec3(0, 0, 0);
+    cam->velocity = obz_vec3d(0, 0, 0);
     return;
   }
 
-  input = obz_vec3_norm(input);
+  input = obz_vec3d_norm(input);
 
-  Vec3              fwd      = obz_vec3_norm(cam->direction);
-  static const Vec3 world_up = {0, 1, 0};
+  Vec3d              fwd      = obz_vec3d_norm(cam->direction);
+  static const Vec3d world_up = {0, 1, 0};
 
-  Vec3 right = obz_vec3_cross(world_up, fwd);
-  right      = obz_vec3_norm(right);
+  Vec3d right = obz_vec3d_cross(world_up, fwd);
+  right       = obz_vec3d_norm(right);
 
-  if (obz_vec3_len(right) < 1e-6f)
-    right = obz_vec3_norm(obz_vec3_cross((Vec3){0, 0, 1}, fwd));
+  if (obz_vec3d_len(right) < 1e-6f)
+    right = obz_vec3d_norm(obz_vec3d_cross((Vec3d){0, 0, 1}, fwd));
 
-  Vec3 up = obz_vec3_cross(fwd, right);
+  Vec3d up = obz_vec3d_cross(fwd, right);
 
   // Compute velocity
   cam->velocity = obz_vec3_add(
-    obz_vec3_add(obz_vec3_mulf(fwd, input.z * speed), obz_vec3_mulf(right, input.x * speed)),
-    obz_vec3_mulf(up, input.y * speed));
+    obz_vec3_add(obz_vec3d_mulf(fwd, input.z * speed), obz_vec3d_mulf(right, input.x * speed)),
+    obz_vec3d_mulf(up, input.y * speed));
 }
 
 static void event(OBZ_Context* ctx, const void* ev)
@@ -131,7 +131,7 @@ static void event(OBZ_Context* ctx, const void* ev)
   obz_camera_update_direction(&ctx->cam);
 
   // Camera movement
-  float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
+  double speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
   camera_move(&ctx->cam, keyboard, speed);
 }
 
@@ -140,7 +140,7 @@ int main(int argc, char** argv)
   OBZ_Callbacks cb  = {update, render, event};
   OBZ_Context*  ctx = obz_create(&cb, (OBZ_Dimensions){(int)W, (int)H}, NULL);
 
-  ctx->cam                = obz_camera_init((Vec3){0, 0, 0}, W, H, 75.0f);
+  ctx->cam                = obz_camera_init((Vec3d){0, 0, 0}, W, H, 75.0f);
   ctx->timer.perf_freq    = SDL_GetPerformanceFrequency();
   ctx->timer.last_counter = SDL_GetPerformanceCounter();
   obz_camera_set_bounds(&ctx->cam, -W / 2 + margin, W / 2 - margin, -H / 2 + margin, H / 2 - margin,

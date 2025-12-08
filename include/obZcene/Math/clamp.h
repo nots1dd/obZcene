@@ -4,54 +4,52 @@
 #include "Math/floorceil.h"
 #include "obz_types.h"
 
-inline static int obz_clampi(int v, int lo, int hi)
-{
-  if (v < lo)
-    return lo;
-  if (v > hi)
-    return hi;
-  return v;
-}
+#define OBZ_CLAMP_MACRO_DECL(type, name)                      \
+  OBZ_API_IMPL static type obz_clamp##name(type v, type lo, type hi) \
+  {                                                                \
+    if (v < lo)                                                    \
+      return lo;                                                   \
+    if (v > hi)                                                    \
+      return hi;                                                   \
+    return v;                                                      \
+  }
 
-static inline float obz_clampf(float x, float min_val, float max_val)
-{
-  if (x < min_val)
-    return min_val;
-  if (x > max_val)
-    return max_val;
-  return x;
-}
+OBZ_CLAMP_MACRO_DECL(i8, i8)
+OBZ_CLAMP_MACRO_DECL(i16, i16)
+OBZ_CLAMP_MACRO_DECL(i32, i32)
+OBZ_CLAMP_MACRO_DECL(i64, i64)
 
-static inline float obz_clampf01(float x) { return obz_clampf(x, 0.0f, 1.0f); }
+OBZ_CLAMP_MACRO_DECL(int, i)
 
-static inline double obz_clampd(double x, double min_val, double max_val)
-{
-  if (x < min_val)
-    return min_val;
-  if (x > max_val)
-    return max_val;
-  return x;
-}
+OBZ_CLAMP_MACRO_DECL(ui8, ui8)
+OBZ_CLAMP_MACRO_DECL(ui16, ui16)
+OBZ_CLAMP_MACRO_DECL(ui32, ui32)
+OBZ_CLAMP_MACRO_DECL(ui64, ui64)
 
-inline static int obz_clamp_floor_to_int(float v, int lo, int hi)
+OBZ_CLAMP_MACRO_DECL(uint, ui)
+
+OBZ_CLAMP_MACRO_DECL(float, f)
+
+OBZ_CLAMP_MACRO_DECL(double, d)
+
+OBZ_API_IMPL static float obz_clampf01(float x) { return obz_clampf(x, 0.0f, 1.0f); }
+
+OBZ_API_IMPL static double obz_clampd01(double x) { return obz_clampd(x, 0.0, 1.0); }
+
+OBZ_API_IMPL static int obz_clamp_floor_to_int(float v, int lo, int hi)
 {
   return obz_clampi((int)obz_floorf(v), lo, hi);
 }
 
-inline static int obz_clamp_ceil_to_int(float v, int lo, int hi)
+OBZ_API_IMPL static int obz_clamp_ceil_to_int(float v, int lo, int hi)
 {
   return obz_clampi((int)obz_ceilf(v), lo, hi);
 }
 
-static inline int obz_clampf_to_int(float x, int max_target)
+OBZ_API_IMPL static int obz_clampf_to_int(float x, int max_target)
 {
   x = obz_clampf01(x); // first clamp to [0,1]
   return (int)(x * max_target);
-}
-
-static inline OBZ_channel __OBZ_clampf_to_channel(float x)
-{
-  return (OBZ_channel)obz_clampf_to_int(x, 255);
 }
 
 #endif

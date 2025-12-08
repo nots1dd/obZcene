@@ -10,9 +10,9 @@ static void __OBZ_scene_ensure_capacity(OBZ_Scene* s, int need)
     cap *= 2;
 
   s->meshes    = obz_realloc(s->meshes, sizeof(OBZ_Mesh3D*) * cap);
-  s->positions = obz_realloc(s->positions, sizeof(Vec3) * cap);
-  s->rotations = obz_realloc(s->rotations, sizeof(Rot3) * cap);
-  s->rotSpeeds = obz_realloc(s->rotSpeeds, sizeof(Rot3) * cap);
+  s->positions = obz_realloc(s->positions, sizeof(Vec3d) * cap);
+  s->rotations = obz_realloc(s->rotations, sizeof(Rot3d) * cap);
+  s->rotSpeeds = obz_realloc(s->rotSpeeds, sizeof(Rot3d) * cap);
   s->owned     = obz_realloc(s->owned, sizeof(OBZ_MeshOwnership) * cap);
 
   s->capacity = cap;
@@ -48,7 +48,8 @@ void obz_scene_destroy(OBZ_Scene* s)
   obz_free(s);
 }
 
-int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int own_mesh, Rot3 speed)
+int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3d pos, Rot3d rot, int own_mesh,
+                       Rot3d speed)
 {
   if (!mesh)
     return -1;
@@ -66,11 +67,11 @@ int obz_scene_add_mesh(OBZ_Scene* s, OBZ_Mesh3D* mesh, Vec3 pos, Rot3 rot, int o
   return id;
 }
 
-void obz_scene_update(OBZ_Scene* s, float dt)
+void obz_scene_update(OBZ_Scene* s, double dt)
 {
   for (int i = 0; i < s->count; i++)
   {
-    Rot3 v = s->rotSpeeds[i];
+    Rot3d v = s->rotSpeeds[i];
     s->rotations[i].x += v.x * dt;
     s->rotations[i].y += v.y * dt;
     s->rotations[i].z += v.z * dt;

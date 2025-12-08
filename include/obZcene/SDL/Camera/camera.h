@@ -2,7 +2,7 @@
 #define OBZ_SDL_CAMERA_H
 
 #include "Math/simd/x86/trig_pack.h"
-#include "Utils/vec.h"
+#include "Math/vec.h"
 #include <stdbool.h>
 
 OBZ_BEGIN_CPP_DECLS
@@ -15,35 +15,47 @@ typedef enum
 
 typedef struct
 {
-  Vec3 position;  // Camera position
-  Vec3 direction; // Normalized direction vector (camera forward)
-  Vec3 velocity;  // Forward velocity (units per second or per step)
+  double min;
+  double max;
+} OBZ_CamBound;
 
-  float pitch; // rotation around X axis
-  float yaw;   // rotation around Y axis
-  float roll;  // rotation around Z axis
+OBZ_API_IMPL static void __OBZ_add_bound(OBZ_CamBound* bound, double min, double max)
+{
+  bound->min = min;
+  bound->max = max;
+}
 
-  float aspect;
+typedef struct
+{
+  Vec3d position;  // Camera position
+  Vec3d direction; // Normalized direction vector (camera forward)
+  Vec3d velocity;  // Forward velocity (units per second or per step)
 
-  float fov;
-  float near;
-  float far;
+  double pitch; // rotation around X axis
+  double yaw;   // rotation around Y axis
+  double roll;  // rotation around Z axis
 
-  float min_x, max_x;
-  float min_y, max_y;
-  float min_z, max_z;
+  double aspect;
+
+  double fov;
+  double near;
+  double far;
+
+  OBZ_CamBound x_bound;
+  OBZ_CamBound y_bound;
+  OBZ_CamBound z_bound;
 
   bool has_bounds;
 } OBZ_Camera;
 
 // Initialize camera with sensible defaults
-OBZ_API OBZ_Camera obz_camera_init(const Vec3 pos, float W, float H, float fov_deg);
-OBZ_API void       obz_camera_update(OBZ_Camera* cam, float dt);
-OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, float min_x, float max_x, float min_y,
-                                         float max_y, float min_z, float max_z);
+OBZ_API OBZ_Camera obz_camera_init(const Vec3d pos, double W, double H, double fov_deg);
+OBZ_API void       obz_camera_update(OBZ_Camera* cam, double dt);
+OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, double min_x, double max_x, double min_y,
+                                         double max_y, double min_z, double max_z);
 OBZ_API void       obz_camera_update_direction(OBZ_Camera* cam);
 // projection with FOV handling
-OBZ_API OBZ_CameraStatus obz_project_camera(Vec3 world_pos, OBZ_Camera cam, int* px, int* py,
+OBZ_API OBZ_CameraStatus obz_project_camera(Vec3d world_pos, OBZ_Camera cam, int* px, int* py,
                                             int sw, int sh);
 
 OBZ_END_CPP_DECLS

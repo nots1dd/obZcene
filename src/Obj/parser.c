@@ -5,9 +5,9 @@
 
 void obz_objmesh_init(OBZ_ObjMesh* objmesh)
 {
-  objmesh->positions = obz_arr_create(sizeof(Vec3));
-  objmesh->texcoords = obz_arr_create(sizeof(Vec2));
-  objmesh->normals   = obz_arr_create(sizeof(Vec3));
+  objmesh->positions = obz_arr_create(sizeof(Vec3d));
+  objmesh->texcoords = obz_arr_create(sizeof(Vec2d));
+  objmesh->normals   = obz_arr_create(sizeof(Vec3d));
   objmesh->faces     = obz_arr_create(sizeof(OBZ_ObjIndex));
 
   objmesh->face_mtl_id = obz_arr_create(sizeof(int));
@@ -76,10 +76,10 @@ OBZ_Result obz_obj_load(const char* path, OBZ_ObjMesh* out)
 
   obz_objmesh_init(out);
 
-  Vec3 v;
-  Vec2 t;
-  Vec3 n;
-  char line[OBZ_OBJ_LINE_MAX];
+  Vec3d v;
+  Vec2d t;
+  Vec3d n;
+  char  line[OBZ_OBJ_LINE_MAX];
 
   int   current_mtl = -1;                        /* index into out->materials, -1 = none */
   char* obj_dir     = __OBZ_dirname_alloc(path); /* for resolving mtllib/map_Kd */
@@ -121,7 +121,7 @@ OBZ_Result obz_obj_load(const char* path, OBZ_ObjMesh* out)
     /* vertex pos */
     if (p[0] == 'v' && isspace((uchar)p[1]))
     {
-      sscanf(p + 1, "%f %f %f", &v.x, &v.y, &v.z);
+      sscanf(p + 1, "%lf %lf %lf", &v.x, &v.y, &v.z);
       obz_arr_push(&out->positions, &v);
       continue;
     }
@@ -129,7 +129,7 @@ OBZ_Result obz_obj_load(const char* path, OBZ_ObjMesh* out)
     /* texcoord */
     if (p[0] == 'v' && p[1] == 't' && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%f %f", &t.x, &t.y);
+      sscanf(p + 2, "%lf %lf", &t.x, &t.y);
       obz_arr_push(&out->texcoords, &t);
       continue;
     }
@@ -137,7 +137,7 @@ OBZ_Result obz_obj_load(const char* path, OBZ_ObjMesh* out)
     /* normal */
     if (p[0] == 'v' && p[1] == 'n' && isspace((uchar)p[2]))
     {
-      sscanf(p + 2, "%f %f %f", &n.x, &n.y, &n.z);
+      sscanf(p + 2, "%lf %lf %lf", &n.x, &n.y, &n.z);
       obz_arr_push(&out->normals, &n);
       continue;
     }

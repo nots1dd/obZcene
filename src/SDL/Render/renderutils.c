@@ -2,10 +2,10 @@
 #include "Math/clamp.h"
 #include <math.h>
 
-static const float INV_255 = 0.00392156862745098f; // 1 / 255
+static const double INV_255 = 0.00392156862745098f; // 1 / 255
 
-void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0, float* w1,
-                             float* w2)
+void __OBZ_barycentric_persp(Vec3d v0, Vec3d v1, Vec3d v2, int x, int y, double* w0, double* w1,
+                             double* w2)
 {
   // ---------------------- BARYCENTRIC COORDS (2D) ------------------------------------------------
   /*
@@ -83,13 +83,13 @@ void __OBZ_barycentric_persp(Vec3 v0, Vec3 v1, Vec3 v2, int x, int y, float* w0,
   }
 
   const double invDen = 1.0 / denom;
-  *w0                 = (float)(e0 * invDen);
-  *w1                 = (float)(e1 * invDen);
+  *w0                 = (e0 * invDen);
+  *w1                 = (e1 * invDen);
   *w2                 = 1.0f - *w0 - *w1;
 }
 
-Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float one_by_z1,
-                           float one_by_z2, float w0, float w1, float w2)
+Vec2d __OBZ_interp_uv_persp(Vec2d uv0, Vec2d uv1, Vec2d uv2, double one_by_z0, double one_by_z1,
+                            double one_by_z2, double w0, double w1, double w2)
 {
   // ---------------------- PERSPECTIVE-CORRECT INTERPOLATION ----------------------
   /*
@@ -110,25 +110,25 @@ Vec2 __OBZ_interp_uv_persp(Vec2 uv0, Vec2 uv1, Vec2 uv2, float one_by_z0, float 
       This prevents texture distortion on steep surfaces.
   */
   // -------------------------------------------------------------------------------
-  const float u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
-  const float v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
+  const double u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
+  const double v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
 
   // Denominator for perspective-correct interpolation
-  float       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
-  float       mag   = fmax(fmax(fabsf(one_by_z0), fabsf(one_by_z1)), fabsf(one_by_z2));
-  const float eps   = 1e-8f * fmax(1.0f, mag);
+  double       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
+  double       mag   = fmax(fmax(fabs(one_by_z0), fabs(one_by_z1)), fabs(one_by_z2));
+  const double eps   = 1e-8f * fmax(1.0f, mag);
 
   if (denom <= eps)
   {
     // fallback to affine interpolation
-    return (Vec2){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
+    return (Vec2d){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
   }
 
-  float iz = 1.0f / denom;
-  return (Vec2){u * iz, v * iz};
+  double iz = 1.0f / denom;
+  return (Vec2d){u * iz, v * iz};
 }
 
-bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int W, int H)
+bool __OBZ_triangle_offscreen(Vec3d p0, Vec3d p1, Vec3d p2, int W, int H)
 {
   // ---------------------- TRIVIAL FRUSTUM REJECTION ----------------------
   /*
@@ -145,7 +145,7 @@ bool __OBZ_triangle_offscreen(Vec3 p0, Vec3 p1, Vec3 p2, int W, int H)
           (p0.z <= 0 && p1.z <= 0 && p2.z <= 0));
 }
 
-OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffuse)
+OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2d uv, OBZ_Color diffuse)
 {
   // ---------------------- TEXTURE SAMPLING (UV MAPPING) ----------------------
   /*
@@ -165,8 +165,8 @@ OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffus
     return __OBZ_pack_color(diffuse);
 
   // Clamp UV to [0,1]
-  float u = obz_clampf01(uv.x);
-  float v = obz_clampf01(uv.y);
+  double u = obz_clampd01(uv.x);
+  double v = obz_clampd01(uv.y);
 
   int tx = (int)(u * (tex->width - 1));
   int ty = (int)((1.0f - v) * (tex->height - 1));
@@ -189,7 +189,7 @@ OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2 uv, OBZ_Color diffus
                                    (OBZ_channel)(p[2] * diffuse.b * INV_255), p[3]);
 }
 
-void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const float* zbuf_clear_ptr)
+void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const double* zbuf_clear_ptr)
 {
   // ---------------------- DEPTH BUFFER CLEAR ----------------------
   /*

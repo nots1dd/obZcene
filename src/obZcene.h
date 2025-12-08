@@ -7,14 +7,14 @@
 #include "obz_log.h"
 #include <stdlib.h>
 
-static const float W      = 1200;
-static const float H      = 600;
-static const float D      = 1000;
-static const float margin = 20.0f;
+static const double W      = 1200;
+static const double H      = 600;
+static const double D      = 1000;
+static const double margin = 20.0f;
 
 inline static void print_camera_debug(const OBZ_Camera* cam)
 {
-  Vec3 fwd = obz_vec3_norm(cam->direction);
+  Vec3d fwd = obz_vec3d_norm(cam->direction);
 
   printf("\r"
          "POS: %.2f %.2f %.2f | "
@@ -75,9 +75,9 @@ inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)
   }
 
   // ------------ Add mesh to scene ------------
-  static Vec3 pos  = {0, 0, 0};
-  static Rot3 rot  = {0, 0, 0};
-  static Rot3 spin = {0, 0, 0};
+  static Vec3d pos  = {0, 0, 0};
+  static Rot3d rot  = {0, 0, 0};
+  static Rot3d spin = {0, 0, 0};
 
   int mid = obz_scene_add_mesh(scene, obj, pos, rot, 1, spin);
   if (mid < 0)
