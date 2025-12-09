@@ -11,11 +11,11 @@ OBZ_API void obz_objmesh_init(OBZ_ObjMesh* objmesh);
 OBZ_API void obz_objmesh_free(OBZ_ObjMesh* objmesh);
 
 /* parse v/vt/vn triplet (keeps values as read from file, 1-based; 0 if missing) */
-OBZ_API OBZ_ObjIndex __OBZ_parse_index(const char** s);
+OBZ_INTERNAL OBZ_ObjIndex __OBZ_parse_index(const char** s);
 
 /* triangulate face stored in tmp[] (count entries). Push indices into faces array.
    Returns the number of triangles produced (count - 2). */
-OBZ_API int __OBZ_triangulate_and_push(OBZ_DynArray* faces, OBZ_ObjIndex* tmp, int count);
+OBZ_INTERNAL int __OBZ_triangulate_and_push(OBZ_DynArray* faces, OBZ_ObjIndex* tmp, int count);
 
 /* ------------------------------
    Main OBJ loader (with implicit mtl loading)

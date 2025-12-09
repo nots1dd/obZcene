@@ -7,10 +7,10 @@
 OBZ_BEGIN_CPP_DECLS
 
 /* Find material index by name, returns -1 if not found */
-OBZ_API int __OBZ_find_material(const OBZ_ObjMesh* mesh, const char* name);
+OBZ_INTERNAL int __OBZ_find_material(const OBZ_ObjMesh* mesh, const char* name);
 
 /* Push a new material and return its index (-1 on error) */
-OBZ_API int __OBZ_push_material(OBZ_ObjMesh* mesh, const OBZ_ObjMtl* mat);
+OBZ_INTERNAL int __OBZ_push_material(OBZ_ObjMesh* mesh, const OBZ_ObjMtl* mat);
 
 OBZ_API OBZ_Result obz_mtl_load(const char* mtl_path, OBZ_ObjMesh* out);
 

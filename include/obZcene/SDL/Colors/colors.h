@@ -30,18 +30,18 @@ typedef struct
 } OBZ_Color;
 
 // !!AGBR scheme!!
-OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color_channels(OBZ_channel r, OBZ_channel g,
-                                                            OBZ_channel b, OBZ_channel a)
+OBZ_INTERNAL_INLINE static OBZ_pixel __OBZ_pack_color_channels(OBZ_channel r, OBZ_channel g,
+                                                               OBZ_channel b, OBZ_channel a)
 {
   return (a << 24) | (b << 16) | (g << 8) | r;
 }
 
-OBZ_FORCE_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
+OBZ_INTERNAL_INLINE static OBZ_pixel __OBZ_pack_color(OBZ_Color c)
 {
   return __OBZ_pack_color_channels(c.r, c.g, c.b, c.a);
 }
 
-OBZ_API_INLINE static OBZ_channel __OBZ_clampf_to_channel(float x)
+OBZ_INTERNAL_INLINE static OBZ_channel __OBZ_clampf_to_channel(float x)
 {
   return (OBZ_channel)obz_clampf_to_int(x, 255);
 }

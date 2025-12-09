@@ -10,18 +10,19 @@
 
 OBZ_BEGIN_CPP_DECLS
 
-OBZ_FORCE_INLINE static double __OBZ_edge_func_d(const Vec3d* a, const Vec3d* b, double px,
-                                                 double py)
+OBZ_INTERNAL_INLINE static double __OBZ_edge_func_d(const Vec3d* a, const Vec3d* b, double px,
+                                                    double py)
 {
   return (double)(b->x - a->x) * (py - (double)a->y) - (double)(b->y - a->y) * (px - (double)a->x);
 }
 
-OBZ_FORCE_INLINE static double __OBZ_edge_func_f(const Vec3f* a, const Vec3f* b, float px, float py)
+OBZ_INTERNAL_INLINE static double __OBZ_edge_func_f(const Vec3f* a, const Vec3f* b, float px,
+                                                    float py)
 {
   return (float)(b->x - a->x) * (py - (float)a->y) - (float)(b->y - a->y) * (px - (float)a->x);
 }
 
-OBZ_FORCE_INLINE static int __OBZ_is_top_left_edge(const Vec3f* a, const Vec3f* b)
+OBZ_INTERNAL_INLINE static int __OBZ_is_top_left_edge(const Vec3f* a, const Vec3f* b)
 {
   /* top-left rule: edge is top-left if it is exactly horizontal and b.x > a.x,
      or if b.y < a.y (higher on screen since y grows downward in screen coords). */

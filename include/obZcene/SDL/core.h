@@ -79,23 +79,22 @@ typedef struct
 } OBZ_InputState;
 
 /* ---------- API ---------- */
-OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
-                        const OBZ_Allocator* alloc);
+OBZ_API OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
+                                const OBZ_Allocator* alloc);
 
-void obz_destroy(OBZ_Context* ctx);
+OBZ_API void obz_destroy(OBZ_Context* ctx);
 
-OBZ_Result obz_window_create(OBZ_Context* ctx);
+OBZ_API OBZ_Result obz_window_create(OBZ_Context* ctx);
 
-void obz_window_destroy(OBZ_Window* win);
+OBZ_API void obz_window_destroy(OBZ_Window* win);
 
-OBZ_Result obz_run(OBZ_Context* ctx);
+OBZ_API OBZ_Result obz_run(OBZ_Context* ctx);
 
-void obz_request_quit(OBZ_Context* ctx);
+OBZ_API void obz_request_quit(OBZ_Context* ctx);
 
 /* Accessors */
-OBZ_InputState* obz_input(OBZ_Context* ctx);
-
-OBZ_Window* obz_main_window(OBZ_Context* ctx);
+OBZ_API OBZ_InputState* obz_input(OBZ_Context* ctx);
+OBZ_API OBZ_Window*     obz_main_window(OBZ_Context* ctx);
 
 /* ---------- Timer ---------- */
 typedef int OBZ_TimerID;

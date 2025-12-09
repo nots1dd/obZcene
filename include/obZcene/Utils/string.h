@@ -10,7 +10,7 @@ OBZ_BEGIN_CPP_DECLS
 
 /* Extract directory portion of a path (returns a malloc'd string, caller must free).
    If no directory, returns strdup(".") */
-inline static char* __OBZ_dirname_alloc(const char* path)
+OBZ_INTERNAL_INLINE static char* __OBZ_dirname_alloc(const char* path)
 {
   if (!path)
     return strdup(".");
@@ -27,7 +27,7 @@ inline static char* __OBZ_dirname_alloc(const char* path)
   return out;
 }
 
-static inline void obz_strncpy(char* dst, const char* src, size_t dst_size)
+OBZ_API_INLINE static void obz_strncpy(char* dst, const char* src, size_t dst_size)
 {
   if (!dst || !src || dst_size == 0)
     return;
@@ -37,7 +37,7 @@ static inline void obz_strncpy(char* dst, const char* src, size_t dst_size)
   dst[n] = '\0';
 }
 
-inline static char* __OBZ_str_concat(const char* a, const char* b)
+OBZ_INTERNAL_INLINE static char* __OBZ_str_concat(const char* a, const char* b)
 {
   if (!a || !b)
     return NULL;
@@ -54,7 +54,7 @@ inline static char* __OBZ_str_concat(const char* a, const char* b)
 }
 
 /* join dir + filename into a malloc'd path (caller frees) */
-inline static char* __OBZ_join_path(const char* dir, const char* file)
+OBZ_INTERNAL_INLINE static char* __OBZ_join_path(const char* dir, const char* file)
 {
   if (!dir || !file)
     return NULL;
@@ -75,7 +75,7 @@ inline static char* __OBZ_join_path(const char* dir, const char* file)
   return __OBZ_str_concat(dir, file);
 }
 
-inline static char* __OBZ_skipws(char* s)
+OBZ_INTERNAL_INLINE static char* __OBZ_skipws(char* s)
 {
   while (*s && isspace((uchar)*s))
     s++;
@@ -86,7 +86,7 @@ inline static char* __OBZ_skipws(char* s)
    Custom atoi -> moves pointer past digits and optional sign
    returns parsed integer (does not skip leading whitespace)
    ------------------------------ */
-inline static int __OBZ_atoi_ptr(const char** ptr)
+OBZ_INTERNAL_INLINE static int __OBZ_atoi_ptr(const char** ptr)
 {
   const char* p    = *ptr;
   int         sign = 1, v = 0;

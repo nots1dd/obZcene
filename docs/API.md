@@ -45,16 +45,26 @@ Couple of things:
     ```c 
     // in a c source file...
     OBZ_INTERNAL double __OBZ_func_name(...) { ... }
+
+    // it could also be a prototype decl in a header:
+
+    // in A.h 
+    OBZ_INTERNAL double __OBZ_func_name(...);
+
+    // then in A.c 
+    double __OBZ_func_name(...) { ... }
     ```
 
     This is a macro to NOT inline the function (makes it easy to search the repo for internal functions) and explicitly states that this is a **private** and **internal** function call that is NOT meant to be used directly by the user.
 
-    > [!NOTE]
-    > 
-    > Not ALL internal helpers have the `OBZ_INTERNAL` macro. A lot of them are **INLINED**.
-    > 
-    > To better detect them, search for `__OBZ_` as the prefix of the function name.
-    > 
+    ```h 
+    // in a header file...
+    OBZ_INTERNAL_INLINE uint8_t __OBZ_f_name(...) { ... }
+    ```
+
+    `OBZ_INTERNAL_INLINE` is just `OBZ_FORCE_INLINE` but the name gives some clarity regarding which functions are part of the API and which are just helpers.
+
+    The `__OBZ_` prefix also helps to identify internal helpers for the engine.
 
 
 2. APIs by definition have very stable return types.

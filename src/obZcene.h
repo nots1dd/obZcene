@@ -12,9 +12,9 @@ static const float g_H      = 600;
 static const float g_D      = 1000;
 static const float g_margin = 20.0f;
 
-static OBZ_CamBound g_x_axis = {-g_W / 2 + g_margin, g_W / 2 - g_margin};
-static OBZ_CamBound g_y_axis = {-g_H / 2 + g_margin, g_H / 2 - g_margin};
-static OBZ_CamBound g_z_axis = {-g_D / 2 + g_margin, g_D / 2 - g_margin};
+static const OBZ_CamBound g_x_axis = {-g_W / 2 + g_margin, g_W / 2 - g_margin};
+static const OBZ_CamBound g_y_axis = {-g_H / 2 + g_margin, g_H / 2 - g_margin};
+static const OBZ_CamBound g_z_axis = {-g_D / 2 + g_margin, g_D / 2 - g_margin};
 
 // static void print_camera_debug(const OBZ_Camera* cam)
 // {

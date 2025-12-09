@@ -21,7 +21,7 @@ typedef struct
   float roll;  // rotation around Z axis
 } OBZ_CamRotation;
 
-OBZ_API_INLINE static void __OBZ_add_bound(OBZ_CamBound* bound, float min, float max)
+OBZ_INTERNAL_INLINE static void __OBZ_add_bound(OBZ_CamBound* bound, float min, float max)
 {
   bound->min = min;
   bound->max = max;

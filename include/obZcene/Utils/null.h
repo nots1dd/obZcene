@@ -9,23 +9,26 @@
   ------------------------------------------------------------*/
 
 /* Returns NULL if ptr is NULL, otherwise returns ptr. */
-OBZ_FORCE_INLINE static void* __OBZ_null_or_self(void* ptr) { return ptr ? ptr : NULL; }
+OBZ_INTERNAL_INLINE static void* __OBZ_null_or_self(void* ptr)
+{
+  return ptr ? ptr : NULL;
+}
 
 /* Same as above, but typed via macro. */
 #define __OBZ_NULL_OR_SELF(p) ((p) ? (p) : NULL)
 
 /* Returns 1 if ptr is NULL, 0 otherwise. */
-OBZ_FORCE_INLINE static int __OBZ_is_null(const void* ptr) { return ptr == NULL; }
+OBZ_INTERNAL_INLINE static int __OBZ_is_null(const void* ptr) { return ptr == NULL; }
 
 /* Returns 1 if ptr is NOT NULL, 0 otherwise. */
-OBZ_FORCE_INLINE static int __OBZ_is_not_null(const void* ptr) { return ptr != NULL; }
+OBZ_INTERNAL_INLINE static int __OBZ_is_not_null(const void* ptr) { return ptr != NULL; }
 
 /*------------------------------------------------------------
     Chained / helper patterns
   ------------------------------------------------------------*/
 
 /* If ptr is NULL, return fallback; else return ptr. */
-OBZ_FORCE_INLINE static void* __OBZ_null_or_fallback(void* ptr, void* fallback)
+OBZ_INTERNAL_INLINE static void* __OBZ_null_or_fallback(void* ptr, void* fallback)
 {
   return ptr ? ptr : fallback;
 }

@@ -103,8 +103,9 @@
 #endif
 
 /* Public API tag for documentation purposes */
-#define OBZ_API_INLINE OBZ_FORCE_INLINE
-#define OBZ_INTERNAL   OBZ_NO_INLINE
+#define OBZ_API_INLINE      OBZ_FORCE_INLINE
+#define OBZ_INTERNAL        OBZ_NO_INLINE
+#define OBZ_INTERNAL_INLINE OBZ_FORCE_INLINE
 
 /* =========================================================================
    CONSTEXPR / CONST
