@@ -109,8 +109,8 @@ void obz_camera_update_direction(OBZ_Camera* cam)
 
 // Projects a world-space point into pixel coords.
 // Returns 0 on success, 1 if behind near/far or degenerate.
-OBZ_Result obz_project_camera(const Vec3f world_pos, const OBZ_Camera cam, int* px, int* py,
-                                    int sw, int sh)
+OBZ_Result obz_project_camera(const Vec3f world_pos, const OBZ_Camera cam, int* px, int* py, int sw,
+                              int sh)
 {
   if (!px || !py)
     return OBZ_ERR_CAMERA;

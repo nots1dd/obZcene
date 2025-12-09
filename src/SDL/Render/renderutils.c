@@ -1,7 +1,7 @@
 #include "SDL/Render/renderutils.h"
+#include "Math/abs.h"
 #include "Math/clamp.h"
 #include "Math/minimax.h"
-#include <math.h>
 
 static const float INV_255 = 0.00392156862745098f; // 1 / 255
 
@@ -51,12 +51,12 @@ void __OBZ_barycentric_persp(Vec3f v0, Vec3f v1, Vec3f v2, int x, int y, float* 
   const float denom = __OBZ_edge_func_f(&v0, &v1, v2.x, v2.y);
 
   // Scale-aware epsilon: max coord among triangle vertices
-  float max_coord =
-    obz_maxf(obz_maxf(fabsf(v0.x), fabsf(v0.y)),
-             obz_maxf(obz_maxf(fabsf(v1.x), fabsf(v1.y)), obz_maxf(fabsf(v2.x), fabsf(v2.y))));
+  float max_coord = obz_maxf(
+    obz_maxf(obz_abs(v0.x), obz_abs(v0.y)),
+    obz_maxf(obz_maxf(obz_abs(v1.x), obz_abs(v1.y)), obz_maxf(obz_abs(v2.x), obz_abs(v2.y))));
   const float area_eps = 1e-6 * (1.0 + max_coord);
 
-  if (fabsf(denom) < area_eps)
+  if (obz_abs(denom) < area_eps)
   {
     *w0 = *w1 = *w2 = -1.0f;
     return;
@@ -116,8 +116,8 @@ Vec2f __OBZ_interp_uv_persp(Vec2f uv0, Vec2f uv1, Vec2f uv2, float one_by_z0, fl
 
   // Denominator for perspective-correct interpolation
   float       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
-  float       mag   = obz_maxf(obz_maxf(fabsf(one_by_z0), fabsf(one_by_z1)), fabsf(one_by_z2));
-  const float eps   = 1e-8f * obz_maxf(1.0f, mag);
+  float       mag = obz_maxf(obz_maxf(obz_abs(one_by_z0), obz_abs(one_by_z1)), obz_abs(one_by_z2));
+  const float eps = 1e-8f * obz_maxf(1.0f, mag);
 
   if (denom <= eps)
   {

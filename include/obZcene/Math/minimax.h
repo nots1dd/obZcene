@@ -6,7 +6,7 @@
 
 OBZ_BEGIN_CPP_DECLS
 
-#define OBZ_MINIMAX_MACRO_DECL(type, name)                                           \
+#define OBZ_MINIMAX_MACRO_DECL(type, name)                                             \
   OBZ_API_INLINE static type obz_min##name(type a, type b) { return (a < b) ? a : b; } \
   OBZ_API_INLINE static type obz_max##name(type a, type b) { return (a > b) ? a : b; }
 

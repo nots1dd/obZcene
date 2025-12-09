@@ -43,6 +43,16 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
+typedef long long ll;
+
+typedef unsigned short         ushort;
+typedef unsigned long          ul;
+typedef unsigned long long     ull;
+typedef long long int          lli;
+typedef unsigned long long int ulli;
+
+typedef long double ld;
+
 typedef unsigned int  uint;
 typedef unsigned char uchar;
 

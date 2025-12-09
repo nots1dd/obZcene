@@ -58,8 +58,8 @@ OBZ_API void       obz_camera_set_bounds(OBZ_Camera* cam, OBZ_CamBound x_axis, O
                                          OBZ_CamBound z_axis);
 OBZ_API void       obz_camera_update_direction(OBZ_Camera* cam);
 // projection with FOV handling
-OBZ_API OBZ_Result obz_project_camera(Vec3f world_pos, OBZ_Camera cam, int* px, int* py,
-                                            int sw, int sh);
+OBZ_API OBZ_Result obz_project_camera(Vec3f world_pos, OBZ_Camera cam, int* px, int* py, int sw,
+                                      int sh);
 
 OBZ_END_CPP_DECLS
 

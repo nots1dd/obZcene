@@ -4,14 +4,14 @@
 #include "Math/floorceil.h"
 #include "obz_types.h"
 
-#define OBZ_CLAMP_MACRO_DECL(type, name)                             \
+#define OBZ_CLAMP_MACRO_DECL(type, name)                               \
   OBZ_API_INLINE static type obz_clamp##name(type v, type lo, type hi) \
-  {                                                                  \
-    if (v < lo)                                                      \
-      return lo;                                                     \
-    if (v > hi)                                                      \
-      return hi;                                                     \
-    return v;                                                        \
+  {                                                                    \
+    if (v < lo)                                                        \
+      return lo;                                                       \
+    if (v > hi)                                                        \
+      return hi;                                                       \
+    return v;                                                          \
   }
 
 OBZ_CLAMP_MACRO_DECL(i8, i8)

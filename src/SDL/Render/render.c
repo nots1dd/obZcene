@@ -296,8 +296,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3f pos, OBZ_Mesh3D* mes
 
     // Screen projection
     int sx = 0, sy = 0;
-    if (obz_project_camera(world, cam, &sx, &sy, ctx->width, ctx->height) ==
-        OBZ_ERR_CAMERA)
+    if (obz_project_camera(world, cam, &sx, &sy, ctx->width, ctx->height) == OBZ_ERR_CAMERA)
       continue;
 
     verts_screen[i] = (Vec3f){(float)sx, (float)sy, vz};

@@ -1,7 +1,6 @@
 #ifndef OBZ_MATH_VEC_H
 #define OBZ_MATH_VEC_H
 
-#include "Math/simd/x86/sqrt.h"
 #include "obz_macros.h"
 
 OBZ_BEGIN_CPP_DECLS
@@ -122,6 +121,21 @@ OBZ_API Vec3d obz_vec3d_rotate_z(Vec3d v, double rad);
 OBZ_API double obz_vec3d_len(Vec3d v);
 OBZ_API Vec3d  obz_vec3d_norm(Vec3d v);
 OBZ_API Vec3d  obz_vec3d_lerp(Vec3d a, Vec3d b, double t);
+
+/*-------------------------------------------------------
+    Vector conversions
+-------------------------------------------------------*/
+
+OBZ_API Vec2d obz_vec2f_to_vec2d(Vec2f v);
+OBZ_API Vec2f obz_vec2d_to_vec2f(Vec2d v);
+OBZ_API Vec3d obz_vec3f_to_vec3d(Vec3f v);
+OBZ_API Vec3f obz_vec3d_to_vec3f(Vec3d v);
+
+OBZ_API Vec2f obz_vec3f_to_vec2f(Vec3f v);
+OBZ_API Vec2d obz_vec3d_to_vec2d(Vec3d v);
+
+OBZ_API Vec3f obz_vec2f_to_vec3f(Vec2f v, float z);
+OBZ_API Vec3d obz_vec2d_to_vec3d(Vec2d v, double z);
 
 /*-------------------------------------------------------
     Type-Generic Macros

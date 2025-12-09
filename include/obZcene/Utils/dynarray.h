@@ -45,9 +45,10 @@ OBZ_API_INLINE static OBZ_DynArray obz_arr_create(obz_bytes_t elem_size)
 OBZ_API_INLINE static void obz_arr_free(OBZ_DynArray* a)
 {
   free(a->obz_data);
-  a->obz_data = NULL;
-  a->size     = 0;
-  a->capacity = 0;
+  a->obz_data  = NULL;
+  a->size      = 0;
+  a->capacity  = 0;
+  a->elem_size = 0;
 }
 
 /* ----- Length (element count) ----- */
