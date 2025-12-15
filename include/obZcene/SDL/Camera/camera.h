@@ -1,6 +1,7 @@
 #ifndef OBZ_SDL_CAMERA_H
 #define OBZ_SDL_CAMERA_H
 
+#include "Math/abs.h"
 #include "Math/simd/x86/trig_pack.h"
 #include "Math/vec.h"
 #include "obz_types.h"
@@ -35,7 +36,8 @@ typedef struct
 
   OBZ_CamRotation rot;
 
-  float aspect;
+  float aspect_x;
+  float aspect_y;
 
   float fov;
   float near;
@@ -47,6 +49,22 @@ typedef struct
 
   bool has_bounds;
 } OBZ_Camera;
+
+OBZ_API_INLINE static Vec3f obz_cam_right(const OBZ_Camera* c)
+{
+  // Pick world-up (avoid collinearity)
+  Vec3f world_up = {0, 1, 0};
+  if (obz_abs(c->direction.y) > 0.99f) // looking straight up/down
+    world_up = (Vec3f){0, 0, 1};
+
+  return obz_vec3f_norm(obz_vec3f_cross(world_up, c->direction));
+}
+
+OBZ_API_INLINE static Vec3f obz_cam_up(const OBZ_Camera* c)
+{
+  Vec3f right = obz_cam_right(c);
+  return obz_vec3f_norm(obz_vec3f_cross(c->direction, right));
+}
 
 static const Vec3f g_camera_world_up   = {0, 1, 0};
 static const Vec3f g_camera_world_init = {0, 0, 0};

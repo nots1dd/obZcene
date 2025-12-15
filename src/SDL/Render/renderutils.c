@@ -1,132 +1,51 @@
 #include "SDL/Render/renderutils.h"
 #include "Math/abs.h"
-#include "Math/clamp.h"
-#include "Math/minimax.h"
 
 static const float INV_255 = 0.00392156862745098f; // 1 / 255
 
-void __OBZ_barycentric_persp(Vec3f v0, Vec3f v1, Vec3f v2, int x, int y, float* w0, float* w1,
-                             float* w2)
+Vec3f __OBZ_barycentric_persp(Vec3f a, Vec3f b, Vec3f c, int px, int py)
 {
-  // ---------------------- BARYCENTRIC COORDS (2D) ------------------------------------------------
-  /*
-      Compute barycentric coordinates of the pixel center (x+0.5, y+0.5) in triangle (v0, v1, v2).
+  Vec3f result = {0};
 
-      Using canonical edge functions:
-          edge(a,b,p) = (b.x - a.x)*(p.y - a.y) - (b.y - a.y)*(p.x - a.x)
+  float acx = c.x - a.x, acy = c.y - a.y;
+  float abx = b.x - a.x, aby = b.y - a.y;
+  float apx = px - a.x, apy = py - a.y;
 
-      Denominator (area*2) computed as:
-          denom = edge(v0, v1, v2)
-
-      Use double precision for numerical stability, and scale-aware epsilon: {DOUBTFUL; USING FLOAT FOR NOW!}
-          area_eps = 1e-6 * (1 + max(|v0.x|, |v0.y|, |v1.x|, |v1.y|, |v2.x|, |v2.y|))
-
-      Reject degenerate triangles:
-          if |denom| < area_eps ⇒ set weights to -1
-
-      Compute edge functions for pixel center:
-          e0 = edge(v1, v2, P)  // weight for v0
-          e1 = edge(v2, v0, P)  // weight for v1
-          e2 = edge(v0, v1, P)  // weight for v2
-
-      Normalize orientation to ensure consistent winding:
-          sign = +1 if denom > 0 else -1
-          se_i = e_i * sign
-
-      Apply top-left rule for shared-edge correctness:
-          accept edge if se_i > 0 or (se_i == 0 and is_top_left_edge(a,b))
-
-      If any edge is not accepted, pixel is outside triangle ⇒ weights = -1
-
-      Otherwise, compute normalized barycentric coordinates:
-          w0 = e0 / denom
-          w1 = e1 / denom
-          w2 = 1 - w0 - w1
-  */
-  // --------------------------------------------------------------------------------------------
-
-  const float px = x + 0.5;
-  const float py = y + 0.5;
-
-  const float denom = __OBZ_edge_func_f(&v0, &v1, v2.x, v2.y);
-
-  // Scale-aware epsilon: max coord among triangle vertices
-  float max_coord = obz_maxf(
-    obz_maxf(obz_abs(v0.x), obz_abs(v0.y)),
-    obz_maxf(obz_maxf(obz_abs(v1.x), obz_abs(v1.y)), obz_maxf(obz_abs(v2.x), obz_abs(v2.y))));
-  const float area_eps = 1e-6 * (1.0 + max_coord);
-
-  if (obz_abs(denom) < area_eps)
+  float area = (acx * aby - acy * abx);
+  if (obz_abs(area) < 1e-12f)
   {
-    *w0 = *w1 = *w2 = -1.0f;
-    return;
+    result.x = result.y = result.z = -1;
+    return result;
   }
 
-  // Edge functions (for barycentric weights)
-  const float e0 = __OBZ_edge_func_f(&v1, &v2, px, py); // for w0
-  const float e1 = __OBZ_edge_func_f(&v2, &v0, px, py); // for w1
+  // w0 = alpha
+  float pcx = c.x - px, pcy = c.y - py;
+  float pbx = b.x - px, pby = b.y - py;
+  float alpha = (pcx * pby - pcy * pbx) / area;
 
-  // Normalize orientation to ensure consistent winding
-  const float sign = denom > 0.0 ? 1.0 : -1.0;
-  const float se0  = e0 * sign;
-  const float se1  = e1 * sign;
-  const float se2  = (denom - e0 - e1) * sign;
+  // w1 = beta
+  float beta = (acx * apy - acy * apx) / area;
 
-  // Top-left edge inclusion (inline to avoid branching function call)
-  int accept0 = (se0 > 0.0) || (se0 == 0.0 && ((v2.y < v1.y) || (v2.y == v1.y && v2.x > v1.x)));
-  int accept1 = (se1 > 0.0) || (se1 == 0.0 && ((v0.y < v2.y) || (v0.y == v2.y && v0.x > v2.x)));
-  int accept2 = (se2 > 0.0) || (se2 == 0.0 && ((v1.y < v0.y) || (v1.y == v0.y && v1.x > v0.x)));
+  // w2 = gamma
+  float gamma = 1.0f - alpha - beta;
 
-  if (!(accept0 && accept1 && accept2))
-  {
-    *w0 = *w1 = *w2 = -1.0f;
-    return;
-  }
+  result.x = alpha;
+  result.y = beta;
+  result.z = gamma;
 
-  const float invDen = 1.0 / denom;
-  *w0                = (e0 * invDen);
-  *w1                = (e1 * invDen);
-  *w2                = 1.0f - *w0 - *w1;
+  return result;
 }
 
-Vec2f __OBZ_interp_uv_persp(Vec2f uv0, Vec2f uv1, Vec2f uv2, float one_by_z0, float one_by_z1,
-                            float one_by_z2, float w0, float w1, float w2)
+Vec2f __OBZ_interp_uv_persp(Vec2f uv0, Vec2f uv1, Vec2f uv2, float iz0, float iz1, float iz2,
+                            float w0, float w1, float w2)
 {
-  // ---------------------- PERSPECTIVE-CORRECT INTERPOLATION ----------------------
-  /*
-      UV interpolation must respect perspective.
+  const float u  = uv0.x * iz0 * w0 + uv1.x * iz1 * w1 + uv2.x * iz2 * w2;
+  const float v  = uv0.y * iz0 * w0 + uv1.y * iz1 * w1 + uv2.y * iz2 * w2;
+  const float iz = iz0 * w0 + iz1 * w1 + iz2 * w2;
 
-      Instead of:
-          uv = w0 * uv0 + w1 * uv1 + w2 * uv2      (WRONG for 3D)
+  const float f = 1.0f / iz;
 
-      We use:
-          (u/z) interpolates linearly
-          (v/z) interpolates linearly
-          (1/z) interpolates linearly
-
-      Then reconstruct:
-          u = (Σ wi * (ui / zi)) / (Σ wi * (1/zi))
-          v = (Σ wi * (vi / zi)) / (Σ wi * (1/zi))
-
-      This prevents texture distortion on steep surfaces.
-  */
-  // -------------------------------------------------------------------------------
-  const float u = w0 * (uv0.x * one_by_z0) + w1 * (uv1.x * one_by_z1) + w2 * (uv2.x * one_by_z2);
-  const float v = w0 * (uv0.y * one_by_z0) + w1 * (uv1.y * one_by_z1) + w2 * (uv2.y * one_by_z2);
-
-  // Denominator for perspective-correct interpolation
-  float       denom = w0 * one_by_z0 + w1 * one_by_z1 + w2 * one_by_z2;
-  float       mag = obz_maxf(obz_maxf(obz_abs(one_by_z0), obz_abs(one_by_z1)), obz_abs(one_by_z2));
-  const float eps = 1e-8f * obz_maxf(1.0f, mag);
-
-  if (denom <= eps)
-  {
-    // fallback to affine interpolation
-    return (Vec2f){w0 * uv0.x + w1 * uv1.x + w2 * uv2.x, w0 * uv0.y + w1 * uv1.y + w2 * uv2.y};
-  }
-
-  const float iz = 1.0f / denom;
-  return (Vec2f){u * iz, v * iz};
+  return (Vec2f){u * f, v * f};
 }
 
 bool __OBZ_triangle_offscreen(Vec3f p0, Vec3f p1, Vec3f p2, int W, int H)
@@ -148,46 +67,46 @@ bool __OBZ_triangle_offscreen(Vec3f p0, Vec3f p1, Vec3f p2, int W, int H)
 
 OBZ_pixel __OBZ_sample_texture(const OBZ_Texture* tex, Vec2f uv, OBZ_Color diffuse)
 {
-  // ---------------------- TEXTURE SAMPLING (UV MAPPING) ----------------------
-  /*
-      UV coordinates ∈ [0,1].
-
-      Mapping to texture pixel:
-          x = u * (width  - 1)
-          y = (1 - v) * (height - 1)     // flip vertically (OpenGL-style)
-
-      Color modulation:
-          tex_color * diffuse_color / 255
-
-      Using precomputed INV_255 = 1 / 255 saves divisions (faster).
-  */
-  // --------------------------------------------------------------------------
   if (!tex || !tex->pixels)
     return __OBZ_pack_color(diffuse);
 
-  // Clamp UV to [0,1]
-  float u = obz_clampf01(uv.x);
-  float v = obz_clampf01(uv.y);
+  float u = uv.x - obz_floorf(uv.x); // fract
+  float v = uv.y - obz_floorf(uv.y);
+  v       = 1.0f - v; // flip V
 
-  int tx = (int)(u * (tex->width - 1));
-  int ty = (int)((1.0f - v) * (tex->height - 1));
+  float fx = u * (tex->width - 1);
+  float fy = v * (tex->height - 1);
 
-  // Clamp indices
-  if (tx < 0)
-    tx = 0;
-  else if (tx >= (int)tex->width)
-    tx = tex->width - 1;
-  if (ty < 0)
-    ty = 0;
-  else if (ty >= (int)tex->height)
-    ty = tex->height - 1;
+  int x0 = obz_clampi((int)fx, 0, tex->width - 1);
+  int x1 = obz_clampi(x0 + 1, 0, tex->width - 1);
+  int y0 = obz_clampi((int)fy, 0, tex->height - 1);
+  int y1 = obz_clampi(y0 + 1, 0, tex->height - 1);
 
-  OBZ_channel* p = tex->pixels + 4 * (ty * tex->width + tx);
+  float sx = fx - x0;
+  float sy = fy - y0;
 
-  // Multiply channels and diffuse using precomputed INV_255
-  return __OBZ_pack_color_channels((OBZ_channel)(p[0] * diffuse.r * INV_255),
-                                   (OBZ_channel)(p[1] * diffuse.g * INV_255),
-                                   (OBZ_channel)(p[2] * diffuse.b * INV_255), p[3]);
+  OBZ_channel* p00 = tex->pixels + 4 * (y0 * tex->width + x0);
+  OBZ_channel* p10 = tex->pixels + 4 * (y0 * tex->width + x1);
+  OBZ_channel* p01 = tex->pixels + 4 * (y1 * tex->width + x0);
+  OBZ_channel* p11 = tex->pixels + 4 * (y1 * tex->width + x1);
+
+  float r0 = p00[0] * (1 - sx) + p10[0] * sx;
+  float r1 = p01[0] * (1 - sx) + p11[0] * sx;
+  float g0 = p00[1] * (1 - sx) + p10[1] * sx;
+  float g1 = p01[1] * (1 - sx) + p11[1] * sx;
+  float b0 = p00[2] * (1 - sx) + p10[2] * sx;
+  float b1 = p01[2] * (1 - sx) + p11[2] * sx;
+  float a0 = p00[3] * (1 - sx) + p10[3] * sx;
+  float a1 = p01[3] * (1 - sx) + p11[3] * sx;
+
+  float r = r0 * (1 - sy) + r1 * sy;
+  float g = g0 * (1 - sy) + g1 * sy;
+  float b = b0 * (1 - sy) + b1 * sy;
+  float a = a0 * (1 - sy) + a1 * sy;
+
+  return __OBZ_pack_color_channels((OBZ_channel)(r * diffuse.r * INV_255),
+                                   (OBZ_channel)(g * diffuse.g * INV_255),
+                                   (OBZ_channel)(b * diffuse.b * INV_255), (OBZ_channel)(a));
 }
 
 void __OBZ_render_clear_depth_buffer(OBZ_DynArray* zbuf, const int n, const float* zbuf_clear_ptr)

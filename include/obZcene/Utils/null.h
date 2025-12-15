@@ -9,10 +9,7 @@
   ------------------------------------------------------------*/
 
 /* Returns NULL if ptr is NULL, otherwise returns ptr. */
-OBZ_INTERNAL_INLINE static void* __OBZ_null_or_self(void* ptr)
-{
-  return ptr ? ptr : NULL;
-}
+OBZ_INTERNAL_INLINE static void* __OBZ_null_or_self(void* ptr) { return ptr ? ptr : NULL; }
 
 /* Same as above, but typed via macro. */
 #define __OBZ_NULL_OR_SELF(p) ((p) ? (p) : NULL)

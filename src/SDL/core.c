@@ -94,7 +94,7 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   OBZ_LOG_DEBUG(NULL, "Initializing SDL...");
 
   /* --- SDL init --- */
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_EVENTS) != 0)
+  if (SDL_Init(SDL_INIT_EVERYTHING) != 0)
   {
     OBZ_LOG_ERROR(NULL, "SDL_Init failed: %s", SDL_GetError());
     return NULL;
@@ -248,11 +248,18 @@ OBZ_Result obz_run(OBZ_Context* ctx)
         case SDL_QUIT:
           ctx->quit = OBZ_TRUE;
           break;
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+          if (ctx->cb.event)
+            ctx->cb.event(ctx, &ev);
+          break;
         case SDL_MOUSEMOTION:
           ctx->input.mouse_x  = ev.motion.x;
           ctx->input.mouse_y  = ev.motion.y;
           ctx->input.mouse_dx = ev.motion.xrel;
           ctx->input.mouse_dy = ev.motion.yrel;
+          if (ctx->cb.event)
+            ctx->cb.event(ctx, &ev);
           break;
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP:
@@ -274,9 +281,6 @@ OBZ_Result obz_run(OBZ_Context* ctx)
           }
           break;
       }
-
-      if (ctx->cb.event)
-        ctx->cb.event(ctx, &ev);
     }
 
     Uint64 now              = SDL_GetPerformanceCounter();

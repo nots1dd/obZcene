@@ -4,6 +4,7 @@
 #include "Obj/parser.h"
 #include "SDL/Render/render.h"
 #include "SDL/Scene/scene.h"
+#include "SDL/keymaps.h"
 #include "obz_log.h"
 #include <stdlib.h>
 
@@ -51,6 +52,47 @@ inline static void draw_crosshair(OBZ_RendererContext* rc, int cx, int cy, int l
   // vertical bottom
   for (int y = cy + gap; y <= cy + length; y++)
     obz_render_pixel(rc, cx, y, 0, pixel_color);
+}
+
+void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
+{
+  Vec3f input = {0, 0, 0};
+
+  if (keyboard[KC_W])
+    input.z += 1;
+  if (keyboard[KC_S])
+    input.z -= 1;
+  if (keyboard[KC_D])
+    input.x += 1;
+  if (keyboard[KC_A])
+    input.x -= 1;
+  if (keyboard[KC_SPACE])
+    input.y += 1;
+  if (keyboard[KC_BACKSPACE])
+    input.y -= 1;
+
+  if (obz_vec3f_len(input) < 1e-6f)
+  {
+    cam->velocity = obz_vec3f(0, 0, 0);
+    return;
+  }
+
+  input = obz_vec3f_norm(input);
+
+  Vec3f fwd = obz_vec3f_norm(cam->direction);
+
+  Vec3f right = obz_vec3f_cross(g_camera_world_up, fwd);
+  right       = obz_vec3f_norm(right);
+
+  if (obz_vec3f_len(right) < 1e-6f)
+    right = obz_vec3f_norm(obz_vec3f_cross((Vec3f){0, 0, 1}, fwd));
+
+  Vec3f up = obz_vec3f_cross(fwd, right);
+
+  // Compute velocity
+  cam->velocity = obz_vec3_add(
+    obz_vec3_add(obz_vec3f_mulf(fwd, input.z * speed), obz_vec3f_mulf(right, input.x * speed)),
+    obz_vec3f_mulf(up, input.y * speed));
 }
 
 inline static void init_scene(OBZ_Scene* scene, const char* obj_file_path)

@@ -1,6 +1,5 @@
 #include "Math/clamp.h"
 #include "SDL/core.h"
-#include "SDL/keymaps.h"
 #include "obZcene.h"
 
 DECLARE_OBZ_GLOBAL_LOGGER();
@@ -44,53 +43,10 @@ static void update(OBZ_Context* ctx, float dt)
   (void)in;
 }
 
-void camera_move(OBZ_Camera* cam, const ui8* keyboard, float speed)
-{
-  Vec3f input = {0, 0, 0};
-
-  if (keyboard[KC_W])
-    input.z += 1;
-  if (keyboard[KC_S])
-    input.z -= 1;
-  if (keyboard[KC_D])
-    input.x += 1;
-  if (keyboard[KC_A])
-    input.x -= 1;
-  if (keyboard[KC_SPACE])
-    input.y += 1;
-  if (keyboard[KC_BACKSPACE])
-    input.y -= 1;
-
-  if (obz_vec3f_len(input) < 1e-6f)
-  {
-    cam->velocity = obz_vec3f(0, 0, 0);
-    return;
-  }
-
-  input = obz_vec3f_norm(input);
-
-  Vec3f fwd = obz_vec3f_norm(cam->direction);
-
-  Vec3f right = obz_vec3f_cross(g_camera_world_up, fwd);
-  right       = obz_vec3f_norm(right);
-
-  if (obz_vec3f_len(right) < 1e-6f)
-    right = obz_vec3f_norm(obz_vec3f_cross((Vec3f){0, 0, 1}, fwd));
-
-  Vec3f up = obz_vec3f_cross(fwd, right);
-
-  // Compute velocity
-  cam->velocity = obz_vec3_add(
-    obz_vec3_add(obz_vec3f_mulf(fwd, input.z * speed), obz_vec3f_mulf(right, input.x * speed)),
-    obz_vec3f_mulf(up, input.y * speed));
-}
-
 static void event(OBZ_Context* ctx, const void* ev)
 {
   OBZ_InputState* in       = obz_input(ctx);
   const ui8*      keyboard = in->keyboard;
-  static bool     prev_b   = false;
-  bool            now_b    = keyboard[KC_B];
 
   // Escape to quit
   if (keyboard[KC_ESCAPE])
@@ -100,16 +56,13 @@ static void event(OBZ_Context* ctx, const void* ev)
     return;
   }
   // pressing B
-  if (now_b && !prev_b)
+  if (keyboard[KC_B])
   {
-    // key just pressed once
     if (ctx->renctx->background_color == COLOR_WHITE_PIXELS)
       ctx->renctx->background_color = COLOR_BLACK_PIXELS;
     else
       ctx->renctx->background_color = COLOR_WHITE_PIXELS;
   }
-
-  prev_b = now_b;
 
   // Mouse look
   static int last_mx = 400, last_my = 300;

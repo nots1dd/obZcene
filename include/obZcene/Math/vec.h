@@ -16,14 +16,26 @@ typedef struct
 {
   float x, y, z;
 } Vec3f;
+
 typedef struct
 {
   double x, y;
 } Vec2d;
+
 typedef struct
 {
   double x, y, z;
 } Vec3d;
+
+typedef struct
+{
+  float x, y, z, w;
+} Vec4f;
+
+typedef struct
+{
+  double x, y, z, w;
+} Vec4d;
 
 /* Constructors */
 OBZ_API_INLINE static Vec2f obz_vec2f(float x, float y) { return (Vec2f){x, y}; }
@@ -31,6 +43,16 @@ OBZ_API_INLINE static Vec3f obz_vec3f(float x, float y, float z) { return (Vec3f
 
 OBZ_API_INLINE static Vec2d obz_vec2d(double x, double y) { return (Vec2d){x, y}; }
 OBZ_API_INLINE static Vec3d obz_vec3d(double x, double y, double z) { return (Vec3d){x, y, z}; }
+
+OBZ_API_INLINE static Vec4f obz_vec4f(float x, float y, float z, float w)
+{
+  return (Vec4f){x, y, z, w};
+}
+
+OBZ_API_INLINE static Vec4d obz_vec4d(double x, double y, double z, double w)
+{
+  return (Vec4d){x, y, z, w};
+}
 
 /*-------------------------------------------------------
     Vec2f API
@@ -126,16 +148,46 @@ OBZ_API Vec3d  obz_vec3d_lerp(Vec3d a, Vec3d b, double t);
     Vector conversions
 -------------------------------------------------------*/
 
+// explicit conversions from float to double and vice versa
+
 OBZ_API Vec2d obz_vec2f_to_vec2d(Vec2f v);
 OBZ_API Vec2f obz_vec2d_to_vec2f(Vec2d v);
 OBZ_API Vec3d obz_vec3f_to_vec3d(Vec3f v);
 OBZ_API Vec3f obz_vec3d_to_vec3f(Vec3d v);
+OBZ_API Vec4d obz_vec4f_to_vec4d(Vec4f v);
+OBZ_API Vec4f obz_vec4d_to_vec4f(Vec4d v);
+
+// conversions between different dimensions
+//
+// Vec2 --> Vec3
+
+OBZ_API Vec3f obz_vec2f_to_vec3f(Vec2f v, float z);
+OBZ_API Vec3d obz_vec2d_to_vec3d(Vec2d v, double z);
+
+// Vec2 --> Vec4
+
+OBZ_API Vec4f obz_vec2f_to_vec4f(Vec2f v, float z, float w);
+OBZ_API Vec4d obz_vec2d_to_vec4d(Vec2d v, double z, double w);
+
+// Vec3 --> Vec2
 
 OBZ_API Vec2f obz_vec3f_to_vec2f(Vec3f v);
 OBZ_API Vec2d obz_vec3d_to_vec2d(Vec3d v);
 
-OBZ_API Vec3f obz_vec2f_to_vec3f(Vec2f v, float z);
-OBZ_API Vec3d obz_vec2d_to_vec3d(Vec2d v, double z);
+// Vec3 --> Vec4
+
+OBZ_API Vec4f obz_vec3f_to_vec4f(Vec3f v, float w);
+OBZ_API Vec4d obz_vec3d_to_vec4d(Vec3d v, double w);
+
+// Vec4 --> Vec2
+
+OBZ_API Vec2f obz_vec4f_to_vec2f(Vec4f v);
+OBZ_API Vec2d obz_vec4d_to_vec2d(Vec4d v);
+
+// Vec4 --> Vec3
+
+OBZ_API Vec3f obz_vec4f_to_vec3f(Vec4f v);
+OBZ_API Vec3d obz_vec4d_to_vec3d(Vec4d v);
 
 /*-------------------------------------------------------
     Type-Generic Macros
@@ -168,6 +220,22 @@ OBZ_API Vec3d obz_vec2d_to_vec3d(Vec2d v, double z);
 #define obz_vec3_subf(v, s) _Generic((v), Vec3f: obz_vec3f_subf, Vec3d: obz_vec3d_subf)(v, s)
 #define obz_vec3_mulf(v, s) _Generic((v), Vec3f: obz_vec3f_mulf, Vec3d: obz_vec3d_mulf)(v, s)
 #define obz_vec3_divf(v, s) _Generic((v), Vec3f: obz_vec3f_divf, Vec3d: obz_vec3d_divf)(v, s)
+
+/* Vector conversions */
+#define obz_vec2_to_vec3(v, z) \
+  _Generic((v), Vec2f: obz_vec2f_to_vec3f, Vec2d: obz_vec2d_to_vec3d)(v, z)
+
+#define obz_vec2_to_vec4(v, z, w) \
+  _Generic((v), Vec2f: obz_vec2f_to_vec4f, Vec2d: obz_vec2d_to_vec4d)(v, z, w)
+
+#define obz_vec3_to_vec2(v) _Generic((v), Vec3f: obz_vec3f_to_vec2f, Vec3d: obz_vec3d_to_vec2d)(v)
+
+#define obz_vec3_to_vec4(v, w) \
+  _Generic((v), Vec3f: obz_vec3f_to_vec4f, Vec3d: obz_vec3d_to_vec4d)(v, w)
+
+#define obz_vec4_to_vec2(v) _Generic((v), Vec4f: obz_vec4f_to_vec2f, Vec4d: obz_vec4d_to_vec2d)(v)
+
+#define obz_vec4_to_vec3(v) _Generic((v), Vec4f: obz_vec4f_to_vec3f, Vec4d: obz_vec4d_to_vec3d)(v)
 
 OBZ_END_CPP_DECLS
 #endif

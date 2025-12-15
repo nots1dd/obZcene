@@ -85,12 +85,10 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel
 // TRIANGLE RASTERIZATION: SCREEN-SPACE BARYCENTRIC + DEPTH + TEXTURE INTERP
 // -----------------------------------------------------------------------------
 static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, Vec3f v2, Vec2f uv0,
-                                  Vec2f uv1, Vec2f uv2, float one_by_z0, float one_by_z1,
-                                  float one_by_z2, OBZ_Texture* tex, OBZ_Color diffuse,
-                                  int use_color_only)
+                                  Vec2f uv1, Vec2f uv2, float iz0, float iz1, float iz2,
+                                  OBZ_Texture* tex, OBZ_Color diffuse, int use_color_only)
 {
-  if (!ctx)
-    return;
+  __OBZ_RETURN_VOID_IF_NULL(ctx);
 
   // ----------------------- SCREEN-SPACE BOUNDING BOX -------------------------
   /*
@@ -141,7 +139,6 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, 
   {
     for (int x = minx; x <= maxx; ++x)
     {
-      float w0, w1, w2;
 
       // --------------------- BARYCENTRIC (EDGE FUNCTIONS) ---------------------
       /*
@@ -153,7 +150,10 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, 
           If any weight < 0 ⇒ pixel outside triangle.
       */
       // ------------------------------------------------------------------------
-      __OBZ_barycentric_persp(v0, v1, v2, x, y, &w0, &w1, &w2);
+      Vec3f bary_persp = __OBZ_barycentric_persp(v0, v1, v2, x, y);
+
+      float w0 = bary_persp.x, w1 = bary_persp.y, w2 = bary_persp.z;
+
       if (w0 < 0 || w1 < 0 || w2 < 0)
         continue;
 
@@ -206,8 +206,7 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, 
             This fixes distortion seen with linear UV interpolation.
         */
         // ----------------------------------------------------------------------
-        Vec2f uv =
-          __OBZ_interp_uv_persp(uv0, uv1, uv2, one_by_z0, one_by_z1, one_by_z2, w0, w1, w2);
+        Vec2f uv   = __OBZ_interp_uv_persp(uv0, uv1, uv2, iz0, iz1, iz2, w0, w1, w2);
         out_buffer = __OBZ_sample_texture(tex, uv, diffuse);
       }
 

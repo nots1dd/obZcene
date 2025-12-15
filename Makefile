@@ -69,6 +69,7 @@ SRC := \
 		src/SDL/Scene/scene.c \
 		src/SDL/Mesh/mesh.c \
     src/Math/vec.c \
+		src/Math/matrix.c \
 		src/Obj/mtl.c \
 		src/Obj/parser.c
 

@@ -27,10 +27,11 @@ OBZ_Camera obz_camera_init(const Vec3f pos, float W, float H, float fov_deg)
                     .rot.yaw   = 0.0f,
                     .rot.roll  = 0.0f,
 
-                    .fov    = fov_deg * M_PI / 180.0f,
-                    .aspect = W / H,
-                    .near   = 0.1f,
-                    .far    = 5 * W};
+                    .fov      = fov_deg * M_PI / 180.0f,
+                    .aspect_x = W / H,
+                    .aspect_y = H / W,
+                    .near     = 0.1f,
+                    .far      = 5 * W};
 
   return cam;
 }
@@ -199,7 +200,7 @@ OBZ_Result obz_project_camera(const Vec3f world_pos, const OBZ_Camera cam, int* 
   float f = 1.0f / tanf(cam.fov * 0.5f);
 
   // NDC coordinates (normalized device coords)
-  float ndc_x = (x * f) / (z * cam.aspect);
+  float ndc_x = (x * f) / (z * cam.aspect_x);
   float ndc_y = (y * f) / z;
 
   // ---------------------- NDC -> SCREEN COORDINATES ----------------------
