@@ -282,7 +282,7 @@ void obz_render_mesh_camera(OBZ_RendererContext* ctx, Vec3f pos, OBZ_Mesh3D* mes
 
     // Camera depth = projection on camera forward vector
     Vec3f view_vec = obz_vec3_sub(world, cam.position);
-    float vz       = obz_vec3f_dot(view_vec, cam_fwd);
+    float vz       = obz_vec3_dot(view_vec, cam_fwd);
 
     // Screen projection
     int sx = 0, sy = 0;
