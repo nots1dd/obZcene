@@ -2,56 +2,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 
-static ui32 timer_thread_trampoline(ui32 interval, void* userdata)
-{
-  [[maybe_unused]] OBZ_Context* ctx = userdata;
-
-  SDL_Event ev;
-  SDL_memset(&ev, 0, sizeof(ev));
-  ev.type      = OBZ_EVENT_TIMER;
-  ev.user.code = 0;
-
-  SDL_PushEvent(&ev);
-
-  return interval; /* repeat */
-}
-
-OBZ_TimerID obz_add_timer(OBZ_Context* ctx, ui32 interval_ms, OBZ_TimerFn fn)
-{
-  if (!ctx || !fn || ctx->timers_count >= 32)
-    return 0;
-
-  SDL_TimerID id = SDL_AddTimer(interval_ms, timer_thread_trampoline, ctx);
-  if (!id)
-    return 0;
-
-  int i                   = ctx->timers_count++;
-  ctx->timers_id[i]       = id;
-  ctx->timers_fn[i]       = fn;
-  ctx->timers_interval[i] = interval_ms;
-
-  return id;
-}
-
-void obz_remove_timer(OBZ_Context* ctx, OBZ_TimerID id)
-{
-  if (!ctx)
-    return;
-
-  for (int i = 0; i < ctx->timers_count; i++)
-  {
-    if (ctx->timers_id[i] == id)
-    {
-      SDL_RemoveTimer(id);
-      ctx->timers_id[i]       = ctx->timers_id[ctx->timers_count - 1];
-      ctx->timers_fn[i]       = ctx->timers_fn[ctx->timers_count - 1];
-      ctx->timers_interval[i] = ctx->timers_interval[ctx->timers_count - 1];
-      ctx->timers_count--;
-      return;
-    }
-  }
-}
-
 /* ----- Alloc helpers ----- */
 static void* A_malloc(const OBZ_Allocator* a, size_t s)
 {
@@ -101,14 +51,8 @@ OBZ_Context* obz_create(const OBZ_Callbacks* cb, const OBZ_Dimensions dims,
   }
   OBZ_LOG_DEBUG(NULL, "SDL initialized successfully.");
 
-  /* --- Global SDL hints --- */
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* linear filtering */
-  SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
-  SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-  OBZ_LOG_TRACE(NULL, "SDL hints set.");
-
   // Initialize PNG/JPG loader
-  int flags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_WEBP;
+  const int flags = IMG_INIT_PNG | IMG_INIT_JPG | IMG_INIT_WEBP;
   if ((IMG_Init(flags) & flags) != flags)
   {
     OBZ_LOG_ERROR(NULL, "IMG_Init failed: %s", IMG_GetError());
@@ -142,8 +86,8 @@ void obz_destroy(OBZ_Context* ctx)
   if (ctx->renctx)
   {
     if (ctx->renctx->framebuffer)
-      free(ctx->renctx->framebuffer);
-    free(ctx->renctx);
+      obz_free(ctx->renctx->framebuffer);
+    obz_free(ctx->renctx);
     OBZ_LOG_DEBUG(ctx->log, "Renderer context freed.");
   }
 
@@ -189,7 +133,12 @@ OBZ_Result obz_window_create(OBZ_Context* ctx)
 
   SDL_SetRenderDrawBlendMode(r, SDL_BLENDMODE_BLEND);
   SDL_RenderSetLogicalSize(r, ctx->win_desc->dim.width, ctx->win_desc->dim.height);
-  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
+
+  /* --- Global SDL hints --- */
+  SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1"); /* linear filtering */
+  SDL_SetHint(SDL_HINT_VIDEO_ALLOW_SCREENSAVER, "1");
+  SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+  OBZ_LOG_TRACE(NULL, "SDL hints set.");
 
   win->win      = w;
   win->ren      = r;
@@ -269,16 +218,6 @@ OBZ_Result obz_run(OBZ_Context* ctx)
             ctx->input.mouse_right = (ev.button.state == SDL_PRESSED);
           break;
         case OBZ_EVENT_TIMER:
-          for (int i = 0; i < ctx->timers_count; i++)
-          {
-            ui32 next = ctx->timers_fn[i](ctx, ctx->timers_interval[i]);
-            if (next != ctx->timers_interval[i])
-            {
-              SDL_RemoveTimer(ctx->timers_id[i]);
-              ctx->timers_id[i]       = SDL_AddTimer(next, timer_thread_trampoline, ctx);
-              ctx->timers_interval[i] = next;
-            }
-          }
           break;
       }
     }

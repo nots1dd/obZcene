@@ -21,13 +21,13 @@ typedef struct
 /* Parsed OBJ mesh with material info */
 typedef struct
 {
-  OBZ_DynArray positions; /* Vec3 */
-  OBZ_DynArray texcoords; /* Vec2 */
-  OBZ_DynArray normals;   /* Vec3 */
-  OBZ_DynArray faces;     /* OBZ_ObjIndex (triangulated) */
+  obz_arr(Vec3) positions;     /* Vec3 */
+  obz_arr(Vec2) texcoords;     /* Vec2 */
+  obz_arr(Vec3) normals;       /* Vec3 */
+  obz_arr(OBZ_ObjIndex) faces; /* OBZ_ObjIndex (triangulated) */
 
-  OBZ_DynArray face_mtl_id; /* int per triangle (index into materials) */
-  OBZ_DynArray materials;   /* OBZ_Material[] */
+  obz_arr(int) face_mtl_id;      /* int per triangle (index into materials) */
+  obz_arr(OBZ_ObjMtl) materials; /* OBZ_Material[] */
 } OBZ_ObjMesh;
 
 /* Material representation parsed from .mtl */

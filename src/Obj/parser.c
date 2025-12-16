@@ -1,17 +1,18 @@
 #include "Obj/parser.h"
 #include "Obj/mtl.h"
+#include "Utils/null.h"
 #include "Utils/string.h"
 #include <ctype.h>
 
 void obz_objmesh_init(OBZ_ObjMesh* objmesh)
 {
-  objmesh->positions = obz_arr_create(sizeof(Vec3f));
-  objmesh->texcoords = obz_arr_create(sizeof(Vec2f));
-  objmesh->normals   = obz_arr_create(sizeof(Vec3f));
-  objmesh->faces     = obz_arr_create(sizeof(OBZ_ObjIndex));
+  objmesh->positions = obz_arr_init(Vec3f);
+  objmesh->texcoords = obz_arr_init(Vec2f);
+  objmesh->normals   = obz_arr_init(Vec3f);
+  objmesh->faces     = obz_arr_init(OBZ_ObjIndex);
 
-  objmesh->face_mtl_id = obz_arr_create(sizeof(int));
-  objmesh->materials   = obz_arr_create(sizeof(OBZ_ObjMtl));
+  objmesh->face_mtl_id = obz_arr_init(int);
+  objmesh->materials   = obz_arr_init(OBZ_ObjMtl);
 
   obz_arr_reserve(&objmesh->positions, 1024);
   obz_arr_reserve(&objmesh->texcoords, 1024);
@@ -24,8 +25,8 @@ void obz_objmesh_init(OBZ_ObjMesh* objmesh)
 
 void obz_objmesh_free(OBZ_ObjMesh* objmesh)
 {
-  if (!objmesh)
-    return;
+  __OBZ_RETURN_VOID_IF_NULL(objmesh);
+
   obz_arr_free(&objmesh->positions);
   obz_arr_free(&objmesh->texcoords);
   obz_arr_free(&objmesh->normals);

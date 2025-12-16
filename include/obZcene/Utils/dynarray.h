@@ -24,28 +24,39 @@ typedef size_t obz_bytes_t; /* number of bytes         */
   */
 typedef struct
 {
-  void*       obz_data;
+  void*       arr_data;
   obz_count_t size;
   obz_count_t capacity;
   obz_bytes_t elem_size;
 } OBZ_DynArray;
 
+// it is syntactically easier to understand obz_arr(T) instead of OBZ_DynArray
+//
+// in reality, OBZ_DynArray is a generic dynamic array that can hold any type of data.
+// this declaration is just for syntactic sugar.
+//
+// always prefer using obz_arr(T).
+#define obz_arr(T) OBZ_DynArray
+
 /* ----- Create empty dynamic array (no allocation yet) ----- */
 OBZ_API_INLINE static OBZ_DynArray obz_arr_create(obz_bytes_t elem_size)
 {
   OBZ_DynArray a;
-  a.obz_data  = NULL;
+  a.arr_data  = NULL;
   a.size      = 0;
   a.capacity  = 0;
   a.elem_size = elem_size;
   return a;
 }
 
+// macro version for easier usage
+#define obz_arr_init(T) obz_arr_create(sizeof(T))
+
 /* ----- Free array ----- */
 OBZ_API_INLINE static void obz_arr_free(OBZ_DynArray* a)
 {
-  free(a->obz_data);
-  a->obz_data  = NULL;
+  free(a->arr_data);
+  a->arr_data  = NULL;
   a->size      = 0;
   a->capacity  = 0;
   a->elem_size = 0;
@@ -59,8 +70,8 @@ OBZ_API_INLINE static void obz_arr_reserve(OBZ_DynArray* a, obz_count_t new_cap)
 {
   if (new_cap > a->capacity)
   {
-    void* p     = obz_realloc(a->obz_data, (obz_bytes_t)new_cap * a->elem_size);
-    a->obz_data = p;
+    void* p     = obz_realloc(a->arr_data, (obz_bytes_t)new_cap * a->elem_size);
+    a->arr_data = p;
     a->capacity = new_cap;
   }
 }
@@ -71,7 +82,7 @@ OBZ_API_INLINE static void obz_arr_push(OBZ_DynArray* a, const void* elem)
   if (a->size == a->capacity)
     obz_arr_reserve(a, a->capacity ? a->capacity * 2 : 8);
 
-  memcpy((char*)a->obz_data + a->size * a->elem_size, elem, a->elem_size);
+  memcpy((char*)a->arr_data + a->size * a->elem_size, elem, a->elem_size);
 
   a->size++;
 }
@@ -85,7 +96,7 @@ OBZ_API_INLINE static void obz_arr_pop(OBZ_DynArray* a, void* out_elem)
   a->size--;
 
   if (out_elem)
-    memcpy(out_elem, (char*)a->obz_data + a->size * a->elem_size, a->elem_size);
+    memcpy(out_elem, (char*)a->arr_data + a->size * a->elem_size, a->elem_size);
 }
 
 /* ----- Get element pointer ----- */
@@ -93,7 +104,7 @@ OBZ_API_INLINE static void* obz_arr_get(OBZ_DynArray* a, obz_index_t idx)
 {
   if (idx >= a->size)
     return NULL;
-  return (char*)a->obz_data + idx * a->elem_size;
+  return (char*)a->arr_data + idx * a->elem_size;
 }
 
 /* ----- Const version ----- */
@@ -101,19 +112,19 @@ OBZ_API_INLINE static const void* obz_arr_get_const(const OBZ_DynArray* a, obz_i
 {
   if (idx >= a->size)
     return NULL;
-  return (const char*)a->obz_data + idx * a->elem_size;
+  return (const char*)a->arr_data + idx * a->elem_size;
 }
 
 /* ----- Get pointer to the entire array data (read-only) ----- */
 OBZ_API_INLINE static const void* obz_arr_get_data_const(const OBZ_DynArray* a)
 {
-  if (!a || !a->obz_data || a->size == 0)
+  if (!a || !a->arr_data || a->size == 0)
     return NULL;
-  return a->obz_data;
+  return a->arr_data;
 }
 
 /* ----- Get typed pointer to entire array (read/write) ----- */
-#define obz_arr_get_data(a, T) ((T*)((a) && (a)->obz_data ? (a)->obz_data : NULL))
+#define obz_arr_get_data(a, T) ((T*)((a) && (a)->arr_data ? (a)->arr_data : NULL))
 
 /* ----- Set element at index ----- */
 OBZ_API_INLINE static void obz_arr_set(OBZ_DynArray* a, obz_index_t idx, const void* elem)
@@ -121,13 +132,13 @@ OBZ_API_INLINE static void obz_arr_set(OBZ_DynArray* a, obz_index_t idx, const v
   if (idx >= a->size)
     return;
 
-  memcpy((char*)a->obz_data + idx * a->elem_size, elem, a->elem_size);
+  memcpy((char*)a->arr_data + idx * a->elem_size, elem, a->elem_size);
 }
 
 /* ----- Check whether initialized + contains elements ----- */
 OBZ_API_INLINE static bool obz_arr_exists(const OBZ_DynArray* array)
 {
-  return array && array->obz_data != NULL && array->size > 0;
+  return array && array->arr_data != NULL && array->size > 0;
 }
 
 OBZ_END_CPP_DECLS

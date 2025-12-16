@@ -15,7 +15,6 @@ Vec2f obz_vec2f_subf(Vec2f v, float s) { return (Vec2f){v.x - s, v.y - s}; }
 Vec2f obz_vec2f_mulf(Vec2f v, float s) { return (Vec2f){v.x * s, v.y * s}; }
 Vec2f obz_vec2f_divf(Vec2f v, float s) { return (Vec2f){v.x / s, v.y / s}; }
 
-Vec2f obz_vec2f_scale(Vec2f v, float s) { return (Vec2f){v.x * s, v.y * s}; }
 float obz_vec2f_dot(Vec2f a, Vec2f b) { return a.x * b.x + a.y * b.y; }
 
 float obz_vec2f_len(Vec2f v) { return obz_sqrtf(v.x * v.x + v.y * v.y); }
@@ -50,7 +49,6 @@ Vec2d obz_vec2d_subf(Vec2d v, double s) { return (Vec2d){v.x - s, v.y - s}; }
 Vec2d obz_vec2d_mulf(Vec2d v, double s) { return (Vec2d){v.x * s, v.y * s}; }
 Vec2d obz_vec2d_divf(Vec2d v, double s) { return (Vec2d){v.x / s, v.y / s}; }
 
-Vec2d  obz_vec2d_scale(Vec2d v, double s) { return (Vec2d){v.x * s, v.y * s}; }
 double obz_vec2d_dot(Vec2d a, Vec2d b) { return a.x * b.x + a.y * b.y; }
 
 double obz_vec2d_len(Vec2d v)
@@ -89,7 +87,6 @@ Vec3f obz_vec3f_subf(Vec3f v, float s) { return (Vec3f){v.x - s, v.y - s, v.z - 
 Vec3f obz_vec3f_mulf(Vec3f v, float s) { return (Vec3f){v.x * s, v.y * s, v.z * s}; }
 Vec3f obz_vec3f_divf(Vec3f v, float s) { return (Vec3f){v.x / s, v.y / s, v.z / s}; }
 
-Vec3f obz_vec3f_scale(Vec3f v, float s) { return (Vec3f){v.x * s, v.y * s, v.z * s}; }
 float obz_vec3f_dot(Vec3f a, Vec3f b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
 Vec3f obz_vec3f_cross(Vec3f a, Vec3f b)
@@ -141,7 +138,6 @@ Vec3d obz_vec3d_subf(Vec3d v, double s) { return (Vec3d){v.x - s, v.y - s, v.z -
 Vec3d obz_vec3d_mulf(Vec3d v, double s) { return (Vec3d){v.x * s, v.y * s, v.z * s}; }
 Vec3d obz_vec3d_divf(Vec3d v, double s) { return (Vec3d){v.x / s, v.y / s, v.z / s}; }
 
-Vec3d  obz_vec3d_scale(Vec3d v, double s) { return (Vec3d){v.x * s, v.y * s, v.z * s}; }
 double obz_vec3d_dot(Vec3d a, Vec3d b) { return a.x * b.x + a.y * b.y + a.z * b.z; }
 
 Vec3d obz_vec3d_cross(Vec3d a, Vec3d b)

@@ -48,44 +48,38 @@ static void event(OBZ_Context* ctx, const void* ev)
   OBZ_InputState* in       = obz_input(ctx);
   const ui8*      keyboard = in->keyboard;
 
-  // Escape to quit
   if (keyboard[KC_ESCAPE])
   {
     OBZ_LOG_INFO(NULL, "Escape pressed, quitting...");
     obz_request_quit(ctx);
     return;
   }
-  // pressing B
+
   if (keyboard[KC_B])
   {
-    if (ctx->renctx->background_color == COLOR_WHITE_PIXELS)
-      ctx->renctx->background_color = COLOR_BLACK_PIXELS;
-    else
-      ctx->renctx->background_color = COLOR_WHITE_PIXELS;
+    ctx->renctx->background_color = (ctx->renctx->background_color == COLOR_WHITE_PIXELS)
+                                      ? COLOR_BLACK_PIXELS
+                                      : COLOR_WHITE_PIXELS;
   }
 
-  // Mouse look
+  /* ---------- MOUSE LOOK ---------- */
   static int last_mx = 400, last_my = 300;
   int        dx = in->mouse_x - last_mx;
   int        dy = in->mouse_y - last_my;
 
-  if (in->mouse_left) // Only rotate when left mouse held
+  if (in->mouse_left)
   {
-    float sensitivity = 0.006f;
+    const float sensitivity = 0.006f;
+
     ctx->cam.rot.yaw += dx * sensitivity;
     ctx->cam.rot.pitch -= dy * sensitivity;
 
-    // Clamp pitch
     ctx->cam.rot.pitch = obz_clampf(ctx->cam.rot.pitch, -1.5f, 1.5f);
   }
 
   last_mx = in->mouse_x;
   last_my = in->mouse_y;
 
-  // Update camera forward direction after mouse look
-  obz_camera_update_direction(&ctx->cam);
-
-  // Camera movement
   float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
   camera_move(&ctx->cam, keyboard, speed);
 }

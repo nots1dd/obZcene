@@ -1,4 +1,5 @@
 #include "Math/matrix.h"
+#include "obz_types.h"
 #include <math.h>
 
 Mat4f obz_mat4f_identity()
@@ -64,7 +65,7 @@ Mat4f obz_mat4f_make_scale(float sx, float sy, float sz)
   // | 0 0 sz 0 |
   // | 0 0 0 1 |
 
-  Mat4f m = obz_mat4f_identity();
+  auto m = obz_mat4_identity(float);
 
   m.m[0][0] = sx;
   m.m[1][1] = sy;
@@ -80,7 +81,7 @@ Mat4f obz_mat4f_make_translation(float tx, float ty, float tz)
   // | 0 0 1 tz |
   // | 0 0 0  1 |
 
-  Mat4f m = obz_mat4f_identity();
+  auto m = obz_mat4_identity(float);
 
   m.m[0][3] = tx;
   m.m[1][3] = ty;
@@ -91,13 +92,13 @@ Mat4f obz_mat4f_make_translation(float tx, float ty, float tz)
 
 Mat4f obz_mat4f_make_rotation_x(float angle)
 {
-  float c = cos(angle);
-  float s = sin(angle);
+  float c = cosf(angle);
+  float s = sinf(angle);
   // | 1  0  0  0 |
   // | 0  c -s  0 |
   // | 0  s  c  0 |
   // | 0  0  0  1 |
-  Mat4f m   = obz_mat4f_identity();
+  auto m    = obz_mat4_identity(float);
   m.m[1][1] = c;
   m.m[1][2] = -s;
   m.m[2][1] = s;
@@ -107,13 +108,13 @@ Mat4f obz_mat4f_make_rotation_x(float angle)
 
 Mat4f obz_mat4f_make_rotation_y(float angle)
 {
-  float c = cos(angle);
-  float s = sin(angle);
+  float c = cosf(angle);
+  float s = sinf(angle);
   // |  c  0  s  0 |
   // |  0  1  0  0 |
   // | -s  0  c  0 |
   // |  0  0  0  1 |
-  Mat4f m   = obz_mat4f_identity();
+  auto m    = obz_mat4_identity(float);
   m.m[0][0] = c;
   m.m[0][2] = s;
   m.m[2][0] = -s;
@@ -123,8 +124,8 @@ Mat4f obz_mat4f_make_rotation_y(float angle)
 
 Mat4f obz_mat4f_make_rotation_z(float angle)
 {
-  float c = cos(angle);
-  float s = sin(angle);
+  float c = cosf(angle);
+  float s = sinf(angle);
   // | c -s  0  0 |
   // | s  c  0  0 |
   // | 0  0  1  0 |
@@ -170,7 +171,7 @@ Mat4f obz_mat4f_make_ortho(float l, float b, float n, float r, float t, float f)
   // | 0 1 0 -c_y |
   // | 0 0 1 -c_z |
   // | 0 0 0    1 |
-  Mat4f trans   = obz_mat4f_identity();
+  auto trans    = obz_mat4_identity(float);
   trans.m[0][3] = -c_x;
   trans.m[1][3] = -c_y;
   trans.m[2][3] = -c_z;
@@ -225,29 +226,29 @@ Mat4f obz_mat4f_make_projection(float fov, float aspect_ratio, float near, float
   float b = -t;
   float n = near;
 
-  Mat4f t_ortho       = obz_mat4f_make_ortho(l, b, n, r, t, f);
-  Mat4f t_perspective = obz_mat4f_make_perspective(near, far);
+  Mat4f t_ortho       = obz_mat4_make_ortho(float, l, b, n, r, t, f);
+  Mat4f t_perspective = obz_mat4_make_perspective(float, near, far);
 
-  Mat4f m = obz_mat4f_mul_mat4f(t_ortho, t_perspective);
+  Mat4f m = obz_mat4_mul(t_ortho, t_perspective);
   return m;
 }
 
 Mat4f obz_mat4f_look_at(Vec3f eye, Vec3f target, Vec3f up)
 {
   // Compute the forward (z), right (x), and up (y) vectors
-  Vec3f z = obz_vec3_sub(target, eye);
-  z       = obz_vec3f_norm(z);
-  Vec3f x = obz_vec3f_cross(up, z);
-  x       = obz_vec3f_norm(x);
-  Vec3f y = obz_vec3f_cross(z, x);
+  auto z = obz_vec3_sub(target, eye);
+  z      = obz_vec3_norm(z);
+  auto x = obz_vec3_cross(up, z);
+  x      = obz_vec3_norm(x);
+  auto y = obz_vec3_cross(z, x);
 
   // | x.x   x.y   x.z  -dot(x,eye) |
   // | y.x   y.y   y.z  -dot(y,eye) |
   // | z.x   z.y   z.z  -dot(z,eye) |
   // |   0     0     0            1 |
-  Mat4f view_matrix = {{{x.x, x.y, x.z, -obz_vec3f_dot(x, eye)},
-                        {y.x, y.y, y.z, -obz_vec3f_dot(y, eye)},
-                        {z.x, z.y, z.z, -obz_vec3f_dot(z, eye)},
+  Mat4f view_matrix = {{{x.x, x.y, x.z, -obz_vec3_dot(x, eye)},
+                        {y.x, y.y, y.z, -obz_vec3_dot(y, eye)},
+                        {z.x, z.y, z.z, -obz_vec3_dot(z, eye)},
                         {0, 0, 0, 1}}};
   return view_matrix;
 }
