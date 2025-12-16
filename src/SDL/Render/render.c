@@ -67,16 +67,7 @@ void obz_render_pixel(OBZ_RendererContext* ctx, int x, int y, float z, OBZ_pixel
   if (x < 0 || x >= ctx->width || y < 0 || y >= ctx->height)
     return;
 
-  int idx = y * ctx->width + x;
-
-  auto zb = obz_arr_exists(&ctx->zbuffer) ? obz_arr_get_data(&ctx->zbuffer, float) : NULL;
-
-  if (zb)
-  {
-    if (z > zb[idx])
-      return;
-    zb[idx] = z;
-  }
+  const int idx = y * ctx->width + x;
 
   ctx->framebuffer[idx] = color;
 }
@@ -210,7 +201,7 @@ static void __OBZ_render_triangle(OBZ_RendererContext* ctx, Vec3f v0, Vec3f v1, 
         out_buffer = __OBZ_sample_texture(tex, uv, diffuse);
       }
 
-      ctx->framebuffer[idx] = out_buffer;
+      obz_render_pixel(ctx, x, y, z, out_buffer);
     }
   }
 }
