@@ -80,6 +80,8 @@ static void event(OBZ_Context* ctx, const void* ev)
   last_mx = in->mouse_x;
   last_my = in->mouse_y;
 
+  obz_camera_update_direction(&ctx->cam);
+
   float speed = keyboard[KC_RSHIFT] ? 10.0f : 5.0f;
   camera_move(&ctx->cam, keyboard, speed);
 }
