@@ -1,0 +1,8 @@
+cmake
+make
+git
+pkgconf
+ccache
+clang
+sdl2-compat
+sdl2_image

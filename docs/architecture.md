@@ -1,0 +1,213 @@
+# Architecture
+
+## Overview
+
+obZcene is a single executable. `src/obZcene.cpp` is a two-line `main` that
+forwards to `obzcene::app::entry()` (`src/App/App.cpp`). Everything else hangs
+off the modules below. Most of the engine is header-only; only the SDL-facing
+code, logging, image writing, and the viewer/overlay live in `.cpp` files.
+
+```
+obZcene.cpp (main)
+   │
+   ▼
+App ──► File parsers (OBJ/MTL) ──► Mesh builder ──► Texture loader
+   │                                                        │
+   ▼                                                        ▼
+Scene assembly (camera framing, lights)            Renderer (rasterizer + shader)
+   │                                                        │
+   ├─ interactive mode ─► Viewer (SDL window, input, overlay HUD)
+   └─ snapshot mode ────► one frame ─► ImageWriter (PPM)
+```
+
+## Module responsibilities
+
+### App (`include/obzcene/App`, `src/App`)
+
+The top layer. `entry()` parses the command line with CLI11 and picks one of
+two run modes:
+
+- **Interactive** (default): opens `obzcene::Viewer` with the loaded scene.
+- **Snapshot** (`-s out.ppm`): forces SDL's dummy video driver, renders exactly
+  one frame, writes it with `write_ppm`, and exits.
+
+`Scene.cpp` contains the load-time helpers:
+
+- `load_scene()` — runs the OBJ parser, builds the `Mesh`, loads diffuse
+  textures (unless `--no-textures`), computes the camera framing and lights.
+- `compute_scene_view()` — derives an eye position, look-at center, bounding
+  radius, and movement speed from the mesh's AABB so the model is visible on
+  frame one.
+- `make_lights()` — either a default three-light rig (directional "sun" +
+  two radius-scaled point lights) or the user-specified `--light-pos` /
+  `--light-dir` overrides.
+- `render_snapshot()` — the headless single-frame path.
+
+### Core (`include/obzcene/Core`, `src/Core`)
+
+- `Types.hpp` — fixed-width aliases (`ui8`, `ui32`, `usz`, ...) plus the asset
+  intermediate representation: `Material`, `ObjVertexRef`, `ObjFace`,
+  `ObjObject`, `ObjData`. `ObjData` mirrors the flat arrays of an OBJ file and
+  is what `build_mesh()` consumes.
+- `Logger.hpp/.cpp` — thin static wrapper over spdlog. `LOG_INFO(...)` logs to
+  the core logger; `LOG_MODULE_INFO("OBJ", ...)` uses lazily created named
+  loggers. `Logger::init()` must run first (done in `entry()`).
+- `Casts.hpp` — `narrow_cast<To>(value)`, an asserting integral cast used
+  wherever sizes become indices.
+
+### File (`include/obzcene/File`)
+
+Both parsers are header-only, line-oriented, and forgiving (unknown keywords
+log a warning and are skipped).
+
+- `ObjParser.hpp` — `parse_obj()` turns a `.obj` file into `ObjData`. Handles
+  1-based and negative (relative) indices, `o`/`g` grouping, `usemtl`
+  assignment, and pulls in the referenced `mtllib` via `parse_mtl()`. Faces
+  with fewer than 3 corners are dropped; n-gons pass through for later
+  triangulation.
+- `MtlParser.hpp` — `parse_mtl()` produces one `Material` per `newmtl` block.
+
+### Math (`include/obzcene/Math`)
+
+Header-only, templated on scalar type (`float`/`double`), in namespace
+`obzcene::math`. `Vec2/3/4`, `Mat3`, `Mat4` (look-at, perspective, ortho,
+inverse), `Quaternion`,
+`Ray`, `Plane`, `AABB`, `Frustum`, plus interpolation helpers (smoothstep,
+Catmull-Rom, slerp/nlerp support) and geometry utilities (barycentric,
+point-in-triangle, reflect/refract). `Math.hpp` is the umbrella include.
+
+This module has no dependencies on the rest of the engine and carries the
+largest share of the tests.
+
+### Renderer (`include/obzcene/Renderer`, `src/Renderer`)
+
+The heart of the engine.
+
+- `Camera.hpp` — yaw/pitch FPS camera. Produces the view, projection, and
+  combined view-projection matrices (perspective or orthographic), extracts
+  the six frustum planes, and unprojects pixels back to world rays
+  (`screen_to_ray`). Pitch is clamped to ±89°.
+- `Mesh.hpp` — the render-ready geometry: flat `MeshVertex` array
+  (position/normal/texcoord), `MeshTriangle` indices + material index,
+  material table, and a precomputed AABB. `build_mesh()` converts `ObjData`
+  into this form: fan-triangulates n-gons, deduplicates corners through a
+  vertex cache keyed on the OBJ (position, texcoord, normal) index triple,
+  and computes a Newell face normal for faces lacking vertex normals.
+- `Rasterizer.hpp` — the hot loop, `rasterize()`. It runs in two parallel
+  phases over `std::thread` workers (`RasterOptions::thread_count`, default
+  = hardware concurrency):
+  1. **Setup** — vertex chunks are transformed once (world → clip → screen),
+     then, separated by a `std::barrier`, triangle chunks are classified:
+     near/far clip-w test, degenerate/backface/viewport culling, and emission
+     of compact `RasterJob`s binned per framebuffer band. Triangles
+     straddling the near/far planes are deferred to a short serial clip pass
+     (Sutherland-Hodgman in clip space, fan-triangulated) instead of being
+     dropped, so nothing pops out at the near plane.
+  2. **Scan conversion** — each worker owns a horizontal band of pixel rows
+     and rasterizes only the jobs binned into it (disjoint rows → no
+     colour/depth races; triangle order preserved → results identical to a
+     single-band run). The inner loop uses edge-function barycentrics, with
+     SSE2 4-wide coverage/depth evaluation when available. Covered pixels
+     get perspective-correct world/normal/uv interpolation, a depth test,
+     and a `shade_fragment()` call. Returns `RenderStats` counters
+     (triangles processed/culled by stage, pixels shaded/written) that feed
+     the HUD. `rasterize_wireframe()` is a separate Bresenham outline path.
+  Above it, `render_frame()` clears the target, applies whole-mesh frustum
+  culling against `Mesh::bounds`, and dispatches wireframe/solid.
+- `Shader.hpp` — the software equivalent of a fragment shader.
+  `shade_fragment()` samples the material's diffuse texture (bilinear, repeat,
+  v flipped), then accumulates lighting with `shade_all()` and adds the
+  emissive term. `FragmentUniforms` bundles the frame-wide state (camera,
+  resolved lights, texture table, ambient scale).
+- `Light.hpp` — light types (directional/point/spot), factories, and the
+  lighting math: Lambert diffuse, Blinn-Phong specular (with a fast integer
+  power path for integral shininess), quadratic distance attenuation, and spot
+  cone falloff. `LightBinding::CameraSpace` lights are re-anchored to the
+  camera each frame by `resolve_lights()` — this is how the headlamp works.
+- `FrameBuffer.hpp` — row-major colour (`Color` = 8-bit RGBA) + `float` depth
+  buffers, flat-indexed accessors for the rasterizer fast path.
+- `Window.hpp/.cpp` — SDL2 facade. Owns the window/renderer and a streaming
+  texture; `present()` uploads the framebuffer. Also pumps events, tracks key
+  state, and accumulates relative mouse deltas. Not used in snapshot mode.
+- `RenderStats.hpp` — plain counter struct returned by `rasterize()`.
+
+### Texture (`include/obzcene/Texture`, `src/Texture`)
+
+- `Texture.hpp` — CPU image (interleaved bytes, 1/3/4 channels) plus sampling:
+  nearest and bilinear, with repeat/clamp/mirror coordinate wrapping. Also
+  procedural `make_checkerboard()` / `make_solid()` generators.
+- `ImageLoader.hpp` — `load_image()` decodes via SDL_image into RGBA.
+- `TextureLoader.cpp` — `load_material_textures()` builds the diffuse-texture
+  table indexed parallel to `Mesh::materials` (missing maps stay empty and
+  materials fall back to their flat `Kd` colour).
+- `ImageWriter.cpp` — `write_ppm()` serializes a framebuffer as binary P6 PPM.
+
+### Viewer (`include/obzcene/Viewer`, `src/Viewer`)
+
+- `Viewer` — the interactive loop. Owns the `Window`, `CameraF`, and
+  `FrameBuffer`. Each frame: compute `dt`, handle input (WASDQE movement,
+  mouse look, light manipulation), resize the framebuffer if the window
+  changed, clear, resolve lights, rasterize (solid or wireframe), draw the
+  overlay, present. Frame time is smoothed with an exponential moving average.
+- `Overlay` — a fixed 5×7 bitmap font (ASCII 0x20–0x7E) drawn directly into
+  the framebuffer. `draw_stats()` paints the HUD: rasterizer counters, mesh
+  info, light list, camera position, FPS, and the help line.
+
+### Backtrace + utils
+
+`Backtrace.hpp` is a debug-build-only (`OBZCENE_DEBUG_BUILD`) in-memory event
+log with libbacktrace stack captures; both macros compile to no-ops in release.
+`obzcene::utils::timer` (timestamp string) and `obzcene::utils::string::transform` (lowercase)
+exist to support it. `utils/Env-Vars.hpp` defines the `OBZCENE_STACK_TRACE`
+environment variable name.
+
+## Frame data flow (solid interactive frame)
+
+1. **Input** — `Window::handle_events()`, mouse delta, key states → camera
+   movement (`src/Viewer/Viewer.cpp`).
+2. **Light resolution** — `resolve_lights_into(m_lights, m_camera,
+   m_resolved_lights)` converts camera-space lights to world space into a
+   reusable buffer (no per-frame allocation); headlamp appended if enabled.
+3. **Clear** — colour to dark grey, depth to +∞ (via `render_frame`, which
+   first skips the mesh entirely when its bounds miss the camera frustum).
+4. **Vertex stage** — every mesh vertex transformed by
+   `camera.view_projection()` (parallel over vertex chunks); screen position,
+   `1/w`, and NDC depth cached in a reused pool.
+5. **Triangle culling** — near/far classification, degenerate, backface,
+   viewport, in parallel over triangle chunks; survivors become `RasterJob`s
+   binned per framebuffer band. Straddlers are clipped in clip space rather
+   than dropped, and counted in `RenderStats`.
+6. **Rasterization** — scanline fill with incremental barycentric weights,
+   parallel over horizontal bands; SSE2 4-wide coverage/depth evaluation when
+   available.
+7. **Fragment stage** — perspective-correct attributes → depth test →
+   `shade_fragment()` (texture × diffuse, then all lights, plus emissive) →
+   8-bit colour write.
+8. **Overlay** — HUD text drawn into the same framebuffer.
+9. **Present** — framebuffer uploaded to the SDL streaming texture.
+
+Snapshot mode runs steps 3–7 once (via the shared `obzcene::render_frame()`
+in `Renderer/Rasterizer.hpp`, also used by the viewer) and
+writes the result with `write_ppm()`.
+
+## Key design decisions
+
+- **Header-only core.** The math library, parsers, rasterizer, shader, and
+  lighting are all inline headers. Compilation is slower but there is one
+  obvious definition site per component, and the tests exercise the headers
+  directly.
+- **Data flow is pull-based and explicit.** `ObjData → Mesh → rasterize()`;
+  textures and lights are plain vectors passed by const reference through
+  `FragmentUniforms`. There is no scene graph, entity system, or resource
+  cache.
+- **Index alignment is the contract.** `Mesh::materials[i]`,
+  `FragmentUniforms::diffuse_textures[i]`, and `MeshTriangle::material_index`
+  all refer to the same index, guaranteed by building both from the same
+  `ObjData`.
+- **Parallelism without races.** The rasterizer splits work along two
+  disjoint axes — vertex/triangle chunks in the setup phase and horizontal
+  row bands in scan conversion — so no two threads write the same vertex or
+  pixel, and per-frame output is identical to a single-threaded run.
+  Triangles straddling the near/far clip planes are clipped
+  (Sutherland-Hodgman) rather than culled, in a short serial pass after the
+  parallel classification.

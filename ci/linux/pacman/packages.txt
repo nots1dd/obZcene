@@ -1,7 +1,0 @@
-sdl2-compat
-sdl2_image
-sdl2_mixer
-sdl2_ttf
-bear
-make
-git

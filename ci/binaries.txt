@@ -1,0 +1,5 @@
+cmake
+ccache
+pkg-config
+clang-format
+clang-tidy
