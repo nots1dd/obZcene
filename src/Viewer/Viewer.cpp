@@ -3,10 +3,11 @@
  * @brief Interactive viewer frame loop and input handling.
  *
  * Implements the controls documented by Viewer/Viewer.hpp: WASDQE camera
- * movement, mouse look, R = reset pose, F1 = wireframe, F2 = stats panel,
- * F3 = headlamp, `[`/`]` = cycle the movable light, and cursor/PgUp/PgDn to
- * move that light around. Each frame it resolves the lights (camera binding),
- * clears, rasterizes, draws the overlay and presents via obzcene::Window.
+ * movement, PgUp/PgDn for vertical movement, mouse look, R = reset pose,
+ * F1 = wireframe, F2 = stats panel, F3 = headlamp, `[`/`]` = cycle the
+ * movable light, and arrows/Home/End to move that light around. Each frame
+ * it resolves the lights (camera binding), clears, rasterizes, draws the
+ * overlay and presents via obzcene::Window.
  *
  * @see Viewer/Viewer.hpp (declaration), Renderer/Window.hpp,
  *      Viewer/Overlay.hpp
@@ -118,6 +119,14 @@ auto Viewer::run(const Mesh& mesh, const std::vector<LightF>& lights,
     {
       m_camera.move_down(move_speed);
     }
+    if (m_window->key(SDL_SCANCODE_PAGEUP))
+    {
+      m_camera.move_up(move_speed);
+    }
+    if (m_window->key(SDL_SCANCODE_PAGEDOWN))
+    {
+      m_camera.move_down(move_speed);
+    }
     if (m_window->key(SDL_SCANCODE_R))
     {
       m_camera.look_at(m_reset_eye, m_reset_target);
@@ -179,11 +188,11 @@ auto Viewer::run(const Mesh& mesh, const std::vector<LightF>& lights,
       {
         active_light.position += m_camera.right() * light_speed;
       }
-      if (m_window->key(SDL_SCANCODE_PAGEUP))
+      if (m_window->key(SDL_SCANCODE_HOME))
       {
         active_light.position += math::Vec3f{0, 1, 0} * light_speed;
       }
-      if (m_window->key(SDL_SCANCODE_PAGEDOWN))
+      if (m_window->key(SDL_SCANCODE_END))
       {
         active_light.position -= math::Vec3f{0, 1, 0} * light_speed;
       }

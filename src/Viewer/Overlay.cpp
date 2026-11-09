@@ -284,7 +284,7 @@ auto draw_stats(FrameBuffer& fb, const RenderStats& stats, const Mesh& mesh,
                 kDimColor);
     }
   }
-  draw_line(line_index++, "F1 wire   F2 stats   F3 headlamp   [ ] light   arrows/PgU/PgD move",
+  draw_line(line_index++, "F1 wire   F2 stats   F3 headlamp   [ ] light   arrows/Home/End move",
             kDimColor);
 }
 

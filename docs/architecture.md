@@ -54,6 +54,9 @@ two run modes:
   loggers. `Logger::init()` must run first (done in `entry()`).
 - `Casts.hpp` — `narrow_cast<To>(value)`, an asserting integral cast used
   wherever sizes become indices.
+- `Threading.hpp` — `threading::parallel_run(workers, fn)`, the engine's only
+  thread-spawning site; rasterization phases call it instead of owning
+  thread management themselves.
 
 ### File (`include/obzcene/File`)
 
@@ -75,6 +78,9 @@ inverse), `Quaternion`,
 `Ray`, `Plane`, `AABB`, `Frustum`, plus interpolation helpers (smoothstep,
 Catmull-Rom, slerp/nlerp support) and geometry utilities (barycentric,
 point-in-triangle, reflect/refract). `Math.hpp` is the umbrella include.
+`Pack4.hpp` provides `math::Pack4f`, a 4-wide float pack with SSE2 and
+scalar backends used by the rasterizer's inner loop (bit-identical results
+either way).
 
 This module has no dependencies on the rest of the engine and carries the
 largest share of the tests.
@@ -106,8 +112,10 @@ The heart of the engine.
   2. **Scan conversion** — each worker owns a horizontal band of pixel rows
      and rasterizes only the jobs binned into it (disjoint rows → no
      colour/depth races; triangle order preserved → results identical to a
-     single-band run). The inner loop uses edge-function barycentrics, with
-     SSE2 4-wide coverage/depth evaluation when available. Covered pixels
+     single-band run). The inner loop uses edge-function barycentrics
+     4 pixels at a time via `math::Pack4f` (Math/Pack4.hpp — SSE2 backend
+     when available, scalar otherwise; thread fan-out itself lives in
+     `threading::parallel_run`, Core/Threading.hpp). Covered pixels
      get perspective-correct world/normal/uv interpolation, a depth test,
      and a `shade_fragment()` call. Returns `RenderStats` counters
      (triangles processed/culled by stage, pixels shaded/written) that feed
@@ -145,8 +153,8 @@ The heart of the engine.
 ### Viewer (`include/obzcene/Viewer`, `src/Viewer`)
 
 - `Viewer` — the interactive loop. Owns the `Window`, `CameraF`, and
-  `FrameBuffer`. Each frame: compute `dt`, handle input (WASDQE movement,
-  mouse look, light manipulation), resize the framebuffer if the window
+  `FrameBuffer`. Each frame: compute `dt`, handle input (WASDQE + PgUp/PgDn
+  movement, mouse look, light manipulation), resize the framebuffer if the window
   changed, clear, resolve lights, rasterize (solid or wireframe), draw the
   overlay, present. Frame time is smoothed with an exponential moving average.
 - `Overlay` — a fixed 5×7 bitmap font (ASCII 0x20–0x7E) drawn directly into

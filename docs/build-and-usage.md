@@ -66,13 +66,14 @@ Setting `--light-pos` or `--light-dir` replaces the default three-light rig
 | Mouse | Look (relative-capture mode) |
 | `W` `A` `S` `D` | Move forward/left/back/right |
 | `Q` / `E` | Move down / up |
+| `PgUp` / `PgDn` | Move up / down (same as `E` / `Q`) |
 | `R` | Reset camera to the initial framing |
 | `F1` | Toggle wireframe |
 | `F2` | Toggle the stats overlay |
 | `F3` | Toggle the camera headlamp |
 | `[` / `]` | Cycle the active light (skips directional lights) |
 | Arrow keys | Move the active light in the camera plane |
-| `PgUp` / `PgDn` | Move the active light up / down |
+| `Home` / `End` | Move the active light up / down |
 
 Movement speed scales with the model's bounding radius (computed at load
 time), so small and large models both feel reasonable.

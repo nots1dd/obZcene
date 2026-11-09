@@ -4,60 +4,7 @@ Findings from a read-through of the codebase, grouped by area. The code
 quality and performance items below have been **resolved** (each entry notes
 the fix); the testing items remain open work.
 
-## Code quality — resolved
-
-1. **Global namespaces → nested under `obzcene`.** The math library lived in
-   a top-level `namespace math`, and the debug helpers used top-level `core`
-   and `utils::...` — collision-prone for a library. All are now nested:
-   `obzcene::math` (all of `include/obzcene/Math/`), `obzcene::core`
-   (`Backtrace.hpp`), `obzcene::utils::timer`, `obzcene::utils::string::transform`.
-   Test files were updated to match. The module map in `Core/Types.hpp` now
-   describes the real structure.
-
-2. **OBJ relative indices now work.** The parse loop previously only called
-   `resolve_index()` for indices `> 0`, so negative (relative) indices passed
-   through unresolved and caused an assert/OOB access in `build_mesh()`. All
-   indices are now resolved and validated via `detail::resolve_and_validate()`
-   in `ObjParser.hpp`; index `0` and out-of-range positions invalidate the
-   face, and out-of-range texcoord/normal indices degrade to "absent".
-
-3. **Parser no longer crashes on malformed input.** `parse_face_vertex()`
-   used unguarded `std::stoi`, which threw on bad tokens. It now uses
-   `std::from_chars` (non-throwing), returns `std::optional<ObjVertexRef>`,
-   and malformed faces are skipped with a warning and counted separately in
-   the parse summary.
-
-4. **Stale documentation references fixed.** `ImageWriter.hpp` and
-   `FrameBuffer.hpp` pointed at a nonexistent `obzcene::App::capture_snapshot`;
-   they now reference `obzcene::app::render_snapshot`. `Window.hpp` now
-   correctly attributes the headless path to `src/App/Scene.cpp`.
-
-5. **Dead option field removed.** `RasterOptions::wireframe` was never read by
-   `rasterize()` (wireframe is a separate function chosen by the caller). The
-   field is gone; call sites use `RasterOptions{.backface_cull = ...}`.
-
-6. **Makefile repaired.** `all-checks` no longer depends on the nonexistent
-   `check` target. The help text names obZcene (not "inLimbo") and Catch2 (not
-   GTest). `HDR_DIRS_REGEX` is defined so `make tidy`'s `--header-filter`
-   works. The `ci/apt|pacman|rpm/packages.txt` files `install-deps` requires
-   now exist.
-
-7. **Include style unified.** `Backtrace.hpp` now includes
-   `"obzcene/utils/Env-Vars.hpp"` etc. like every other header, instead of
-   bare `"utils/..."` paths.
-
-8. **Duplicated frame setup extracted.** `obzcene::render_frame()` in
-   `Renderer/Rasterizer.hpp` now owns the clear colour, depth clear,
-   wireframe/solid dispatch, and rasterize options; both `Viewer::run()` and
-   the snapshot path call it. The colours are shared as
-   `obzcene::kClearColor` / `obzcene::kWireframeColor`.
-
-9. **Unused material fields documented.** `Material::transmission`, `ior`,
-   `opacity`, `illum`, and the specular/normal/ambient map paths are parsed
-   but not used by `shade_fragment()`; their doc comments in `Core/Types.hpp`
-   now say so explicitly, so users know only `map_Kd` is sampled.
-
-## Performance — resolved
+## Performance
 
 Measured at 1280×720 on an 8-core machine, release build (numbers are the
 typical of 5 runs; the scene's own stats confirm the rendered output is
@@ -73,13 +20,15 @@ differs only at depth ties (~1% RMSE), within the tolerance the culling test
 suite already allows between the optimized and reference rasterizers.
 
 1. **Multithreaded rasterizer.** `rasterize()` now runs in two parallel
-   phases over `std::thread` workers (`RasterOptions::thread_count`, default
-   = hardware concurrency). Phase 1 transforms vertex chunks and then —
+   phases (`RasterOptions::thread_count`, default = hardware concurrency).
+   Phase 1 transforms vertex chunks and then —
    separated by a `std::barrier` — classifies triangle chunks, emitting
    compact `RasterJob`s binned per framebuffer band. Phase 2 scan-converts
    each band's jobs on its own thread. Bands partition pixel rows disjointly
    (no colour/depth races) and jobs keep triangle order within a band, so
-   results match a single-band run.
+   results match a single-band run. Thread fan-out itself is abstracted into
+   `threading::parallel_run()` (`Core/Threading.hpp`), the engine's single
+   thread-spawning site.
 
 2. **Whole-mesh frustum culling.** `render_frame()` now tests
    `camera.frustum().contains_aabb(mesh.bounds)` and skips the rasterizer
@@ -98,10 +47,11 @@ suite already allows between the optimized and reference rasterizers.
    fresh light vector every frame.
 
 5. **SSE2 inner loop.** `rasterize_triangle_scan()` evaluates coverage and
-   depth four pixels per iteration with SSE2 (enabled when `__SSE2__` is
-   defined), replicating the scalar math lane-for-lane so images are
-   identical; shading runs scalar per surviving pixel, with a scalar tail
-   and a full scalar fallback on non-SSE2 builds.
+   depth four pixels per iteration through `math::Pack4f`
+   (`Math/Pack4.hpp`), a 4-wide float pack with an SSE2 backend when
+   available and a scalar fallback otherwise — the scanline itself is a
+   single code path, with lane math replicating the scalar order so images
+   are identical. Shading runs scalar per surviving pixel.
 
 6. **Vertex cache in `build_mesh()`.** Corners are now deduplicated through
    an `unordered_map` keyed on the OBJ (position, texcoord, normal) index

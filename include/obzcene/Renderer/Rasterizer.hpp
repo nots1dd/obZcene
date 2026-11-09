@@ -5,8 +5,8 @@
  * @brief Software triangle rasterizer: transform, clip, cull, interpolate, shade.
  *
  * `rasterize` is the hot loop of the renderer and runs in two parallel
- * phases (std::thread workers, count = RasterOptions::thread_count or
- * hardware_concurrency):
+ * phases (threads fanned out via obzcene::threading::parallel_run, count
+ * = RasterOptions::thread_count or hardware_concurrency):
  *
  * Phase 1: each worker transforms a contiguous chunk of the vertex pool
  * (world -> clip -> screen), then — after a barrier — classifies a chunk of
@@ -22,18 +22,23 @@
  * disjointly, so colour/depth writes never race; jobs are visited in
  * triangle order within a band, so results are identical to a single-band
  * run. The inner loop evaluates coverage and depth four pixels at a time
- * with SSE2 when available (scalar tail / fallback) and shades only pixels
- * passing the depth test.
+ * through math::Pack4f and shades only pixels passing the depth test.
  *
  * The `raster_detail` helpers (RasterVertex / perspective_blend) mirror the
  * classic perspective-correct barycentric approach and are exercised directly
- * by tests/test_culling.cpp.
+ * by tests/test_culling.cpp. Thread fan-out lives in
+ * obzcene::threading::parallel_run (Core/Threading.hpp); the 4-wide pixel
+ * arithmetic uses obzcene::math::Pack4f (Math/Pack4.hpp) so the scanline code
+ * has a single code path with an SSE2 backend when available.
  *
- * @see Renderer/Shader.hpp, Renderer/FrameBuffer.hpp, Renderer/Mesh.hpp
+ * @see Renderer/Shader.hpp, Renderer/FrameBuffer.hpp, Renderer/Mesh.hpp,
+ *      Core/Threading.hpp, Math/Pack4.hpp
  */
 
 #include "obzcene/Core/Casts.hpp"
+#include "obzcene/Core/Threading.hpp"
 #include "obzcene/Core/Types.hpp"
+#include "obzcene/Math/Pack4.hpp"
 #include "obzcene/Math/Vec2.hpp"
 #include "obzcene/Math/Vec3.hpp"
 #include "obzcene/Math/Vec4.hpp"
@@ -50,13 +55,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
-#include <thread>
 #include <vector>
-
-#if defined(__SSE2__)
-#include <emmintrin.h>
-#define OBZCENE_RASTER_SSE2 1
-#endif
 
 namespace obzcene
 {
@@ -348,36 +347,12 @@ struct PoolStorage
 };
 
 /**
- * @brief Run `fn(worker, worker_count)` for workers 0..count-1, all but the
- *        first on fresh threads (the caller runs worker 0 and joins the rest).
- */
-template <typename F> inline auto parallel_run(int workers, F&& fn) -> void
-{
-  if (workers <= 1)
-  {
-    fn(0, 1);
-    return;
-  }
-  std::vector<std::thread> threads;
-  threads.reserve(static_cast<usz>(workers - 1));
-  for (auto w = 1; w < workers; ++w)
-  {
-    threads.emplace_back([&, w] { fn(w, workers); });
-  }
-  fn(0, workers);
-  for (auto& thread : threads)
-  {
-    thread.join();
-  }
-}
-
-/**
  * @brief Scan-convert one prepared triangle over the rows [y_lo, y_hi].
  *
- * The inner loop evaluates coverage and depth four pixels at a time with
- * SSE2 when available, replicating the scalar math lane-for-lane (same
- * operation order), so per-pixel values are identical either way; shading
- * runs scalar per surviving pixel. Only pixel counters are touched.
+ * The inner loop evaluates coverage and depth four pixels at a time through
+ * math::Pack4f, replicating the scalar math lane-for-lane (same operation
+ * order), so per-pixel values are identical on the SSE2 and scalar backends;
+ * shading runs scalar per surviving pixel. Only pixel counters are touched.
  */
 inline auto rasterize_triangle_scan(const PreparedVertex& a, const PreparedVertex& b,
                                     const PreparedVertex& c, ui32 material_index,
@@ -405,59 +380,52 @@ inline auto rasterize_triangle_scan(const PreparedVertex& a, const PreparedVerte
     auto       pixel     = width_u * static_cast<usz>(py) + static_cast<usz>(x_min);
     auto       px        = x_min;
 
-#ifdef OBZCENE_RASTER_SSE2
     if (px + 3 <= x_max)
     {
-      const auto eps4 = _mm_set1_ps(cov_eps);
-      const auto one4 = _mm_set1_ps(1.0F);
-      const auto ia4  = _mm_set1_ps(a.inv_w);
-      const auto ib4  = _mm_set1_ps(b.inv_w);
-      const auto ic4  = _mm_set1_ps(c.inv_w);
-      const auto za4  = _mm_set1_ps(a.ndc_z);
-      const auto zb4  = _mm_set1_ps(b.ndc_z);
-      const auto zc4  = _mm_set1_ps(c.ndc_z);
+      const math::Pack4f eps4{cov_eps};
+      const math::Pack4f one4{1.0F};
+      const math::Pack4f ia4{a.inv_w};
+      const math::Pack4f ib4{b.inv_w};
+      const math::Pack4f ic4{c.inv_w};
+      const math::Pack4f za4{a.ndc_z};
+      const math::Pack4f zb4{b.ndc_z};
+      const math::Pack4f zc4{c.ndc_z};
 
-      const auto iota   = _mm_setr_ps(0.0F, 1.0F, 2.0F, 3.0F);
-      const auto dwa4   = _mm_set1_ps(d_wa_dx);
-      const auto dwb4   = _mm_set1_ps(d_wb_dx);
-      const auto dwc4   = _mm_set1_ps(d_wc_dx);
-      const auto dwa4x4 = _mm_set1_ps(4.0F * d_wa_dx);
-      const auto dwb4x4 = _mm_set1_ps(4.0F * d_wb_dx);
-      const auto dwc4x4 = _mm_set1_ps(4.0F * d_wc_dx);
+      const auto dwa4x4 = math::Pack4f{4.0F * d_wa_dx};
+      const auto dwb4x4 = math::Pack4f{4.0F * d_wb_dx};
+      const auto dwc4x4 = math::Pack4f{4.0F * d_wc_dx};
 
-      auto wa4 = _mm_add_ps(_mm_set1_ps(wa), _mm_mul_ps(iota, dwa4));
-      auto wb4 = _mm_add_ps(_mm_set1_ps(wb), _mm_mul_ps(iota, dwb4));
-      auto wc4 = _mm_add_ps(_mm_set1_ps(wc), _mm_mul_ps(iota, dwc4));
+      auto wa4 = math::Pack4f{wa} + math::Pack4f::iota() * math::Pack4f{d_wa_dx};
+      auto wb4 = math::Pack4f{wb} + math::Pack4f::iota() * math::Pack4f{d_wb_dx};
+      auto wc4 = math::Pack4f{wc} + math::Pack4f::iota() * math::Pack4f{d_wc_dx};
 
       for (; px + 3 <= x_max; px += 4)
       {
         // Lane math replicates the scalar loop exactly (same op order).
-        const auto cov4 = _mm_and_ps(_mm_and_ps(_mm_cmpge_ps(wa4, eps4), _mm_cmpge_ps(wb4, eps4)),
-                                     _mm_cmpge_ps(wc4, eps4));
-        const auto cov_mask = _mm_movemask_ps(cov4);
+        const auto cov      = (wa4 >= eps4) & (wb4 >= eps4) & (wc4 >= eps4);
+        const auto cov_mask = cov.movemask();
         stats.pixels_shaded += kPopcount4[cov_mask];
         if (cov_mask != 0)
         {
-          const auto msa4      = _mm_mul_ps(wa4, ia4);
-          const auto msb4      = _mm_mul_ps(wb4, ib4);
-          const auto msc4      = _mm_mul_ps(wc4, ic4);
-          const auto sum4      = _mm_add_ps(_mm_add_ps(msa4, msb4), msc4);
-          const auto inv_sum4  = _mm_div_ps(one4, sum4);
-          const auto na4       = _mm_mul_ps(msa4, inv_sum4);
-          const auto nb4       = _mm_mul_ps(msb4, inv_sum4);
-          const auto nc4       = _mm_mul_ps(msc4, inv_sum4);
-          const auto depth4    = _mm_add_ps(_mm_add_ps(_mm_mul_ps(na4, za4), _mm_mul_ps(nb4, zb4)),
-                                            _mm_mul_ps(nc4, zc4));
-          const auto buf4      = _mm_loadu_ps(&fb.depth_at(pixel));
-          const auto pass4     = _mm_and_ps(cov4, _mm_cmplt_ps(depth4, buf4));
-          const auto pass_mask = _mm_movemask_ps(pass4);
+          const auto msa       = wa4 * ia4;
+          const auto msb       = wb4 * ib4;
+          const auto msc       = wc4 * ic4;
+          const auto sum4      = (msa + msb) + msc;
+          const auto inv_sum4  = one4 / sum4;
+          const auto na4       = msa * inv_sum4;
+          const auto nb4       = msb * inv_sum4;
+          const auto nc4       = msc * inv_sum4;
+          const auto depth4    = (na4 * za4 + nb4 * zb4) + nc4 * zc4;
+          const auto buf4      = math::Pack4f::load(&fb.depth_at(pixel));
+          const auto pass      = cov & (depth4 < buf4);
+          const auto pass_mask = pass.movemask();
           if (pass_mask != 0)
           {
             alignas(16) float na_l[4], nb_l[4], nc_l[4], depth_l[4];
-            _mm_store_ps(na_l, na4);
-            _mm_store_ps(nb_l, nb4);
-            _mm_store_ps(nc_l, nc4);
-            _mm_store_ps(depth_l, depth4);
+            na4.store(na_l);
+            nb4.store(nb_l);
+            nc4.store(nc_l);
+            depth4.store(depth_l);
             for (auto lane = 0; lane < 4; ++lane)
             {
               if ((pass_mask & (1 << lane)) == 0)
@@ -479,21 +447,20 @@ inline auto rasterize_triangle_scan(const PreparedVertex& a, const PreparedVerte
             }
           }
         }
-        wa4 = _mm_add_ps(wa4, dwa4x4);
-        wb4 = _mm_add_ps(wb4, dwb4x4);
-        wc4 = _mm_add_ps(wc4, dwc4x4);
+        wa4 = wa4 + dwa4x4;
+        wb4 = wb4 + dwb4x4;
+        wc4 = wc4 + dwc4x4;
         pixel += 4;
       }
       // Hand the current weights to the scalar tail (lane 0 == px).
       alignas(16) float cur[4];
-      _mm_store_ps(cur, wa4);
+      wa4.store(cur);
       wa = cur[0];
-      _mm_store_ps(cur, wb4);
+      wb4.store(cur);
       wb = cur[0];
-      _mm_store_ps(cur, wc4);
+      wc4.store(cur);
       wc = cur[0];
     }
-#endif
 
     for (; px <= x_max; ++px)
     {
@@ -696,7 +663,7 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
   // -- phase 1: transform (per vertex chunk), barrier, cull+clip-bin (per
   //    triangle chunk) — one spawn round for both ----------------------------
   std::barrier sync(band_count);
-  raster_detail::parallel_run(
+  threading::parallel_run(
     band_count,
     [&](int worker, int workers)
     {
@@ -895,23 +862,23 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
     RenderStats stats{};
   };
   std::vector<BandStats> band_stats(static_cast<usz>(band_count));
-  raster_detail::parallel_run(band_count,
-                              [&](int band, int workers)
-                              {
-                                const auto y_begin = band * rows_per_band;
-                                const auto y_end   = std::min(fb_height, y_begin + rows_per_band);
-                                auto       local   = RenderStats{};
-                                for (auto worker = 0; worker < workers; ++worker)
-                                {
-                                  const auto& chunk = bins_src[worker];
-                                  const auto  sub   = raster_detail::rasterize_band(
-                                    pool, chunk.jobs, chunk.bins[static_cast<usz>(band)], mesh,
-                                    uniforms, fb, y_begin, y_end);
-                                  local.pixels_shaded += sub.pixels_shaded;
-                                  local.pixels_written += sub.pixels_written;
-                                }
-                                band_stats[static_cast<usz>(band)].stats = local;
-                              });
+  threading::parallel_run(band_count,
+                          [&](int band, int workers)
+                          {
+                            const auto y_begin = band * rows_per_band;
+                            const auto y_end   = std::min(fb_height, y_begin + rows_per_band);
+                            auto       local   = RenderStats{};
+                            for (auto worker = 0; worker < workers; ++worker)
+                            {
+                              const auto& chunk = bins_src[worker];
+                              const auto  sub   = raster_detail::rasterize_band(
+                                pool, chunk.jobs, chunk.bins[static_cast<usz>(band)], mesh,
+                                uniforms, fb, y_begin, y_end);
+                              local.pixels_shaded += sub.pixels_shaded;
+                              local.pixels_written += sub.pixels_written;
+                            }
+                            band_stats[static_cast<usz>(band)].stats = local;
+                          });
 
   for (const auto& band : band_stats)
   {
