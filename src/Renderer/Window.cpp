@@ -68,10 +68,6 @@ auto Window::handle_events() -> void
     {
       m_open = false;
     }
-    else if (event.type == SDL_KEYDOWN && event.key.keysym.scancode == SDL_SCANCODE_ESCAPE)
-    {
-      m_open = false;
-    }
     else if (event.type == SDL_MOUSEMOTION)
     {
       m_mouse_dx += event.motion.xrel;
@@ -104,6 +100,8 @@ auto Window::present(const FrameBuffer& fb) -> void
 }
 
 auto Window::is_open() const -> bool { return m_open; }
+
+auto Window::close() -> void { m_open = false; }
 
 auto Window::key(SDL_Scancode scancode) const -> bool
 {

@@ -60,6 +60,8 @@ public:
 
   /** @brief True while the window has no close/quit request. */
   [[nodiscard]] auto is_open() const -> bool;
+  /** @brief Close the window (as if the user asked to quit). */
+  auto close() -> void;
   /** @brief Live state of a key by scancode (pressed during this frame). */
   [[nodiscard]] auto key(SDL_Scancode scancode) const -> bool;
   /**

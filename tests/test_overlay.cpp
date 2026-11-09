@@ -9,10 +9,12 @@
 #include <obzcene/Renderer/Mesh.hpp>
 #include <obzcene/Renderer/RenderStats.hpp>
 #include <obzcene/Texture/Texture.hpp>
+#include <obzcene/Viewer/Scene.hpp>
 
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -143,30 +145,43 @@ TEST_CASE("draw_text clips at framebuffer edges", "[overlay][text]")
   REQUIRE(count_set(fb, obzcene::Color{0, 0, 0}) > 0);
 }
 
-TEST_CASE("draw_stats renders a multi-line block", "[overlay][stats]")
+TEST_CASE("draw_hud renders a multi-line block", "[overlay][stats]")
 {
   obzcene::CameraF cam;
   cam.set_position(Vec3f{1.25f, 2.5f, 3.75f});
   obzcene::FrameBuffer fb{480, 360};
   fb.clear(obzcene::Color{22, 22, 28});
 
-  obzcene::overlay::draw_stats(fb, sample_stats(), sample_mesh(), sample_textures(),
-                               sample_lights(), cam, 60.25f, 16.6f, false, 1, true);
+  auto scene   = obzcene::Scene{};
+  auto model   = std::make_shared<obzcene::Model>();
+  model->mesh  = sample_mesh();
+  auto object  = obzcene::SceneObject{};
+  object.model = model;
+  object.name  = "sample";
+  scene.objects.push_back(object);
+  auto       stats  = sample_stats();
+  const auto lights = sample_lights();
+
+  const auto hud = obzcene::overlay::HudInput{&scene, &stats, &lights, &cam, 60.25f, 16.6f,
+                                              false,  1,      true,    0,    "fly",  {}};
+  obzcene::overlay::draw_hud(fb, hud);
 
   const auto set = count_set(fb, obzcene::Color{22, 22, 28});
   REQUIRE(set > 400);
 }
 
-TEST_CASE("draw_stats handles empty textures", "[overlay][stats]")
+TEST_CASE("draw_hud handles an empty scene", "[overlay][stats]")
 {
   obzcene::CameraF     cam;
   obzcene::FrameBuffer fb{480, 360};
   fb.clear(obzcene::Color{0, 0, 0});
 
-  obzcene::Mesh mesh;
-  mesh.object_count = 1;
-  obzcene::overlay::draw_stats(fb, {}, mesh, std::vector<obzcene::Texture>{},
-                               std::vector<obzcene::LightF>{}, cam, 0.0f, 0.0f, true, 0, false);
+  auto       scene  = obzcene::Scene{};
+  auto       stats  = obzcene::RenderStats{};
+  const auto lights = std::vector<obzcene::LightF>{};
+  const auto hud    = obzcene::overlay::HudInput{&scene, &stats, &lights, &cam, 0.0f,   0.0f,
+                                              true,   0,      false,   -1,   "grab", "hello"};
+  obzcene::overlay::draw_hud(fb, hud);
 
   REQUIRE(count_set(fb, obzcene::Color{0, 0, 0}) > 200);
 }

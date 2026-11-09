@@ -26,7 +26,10 @@ testing, and shading all run on the CPU in plain C++.
   sampling, repeat/clamp/mirror wrapping
 - Blinn-Phong shading with directional, point, and spot lights, distance
   attenuation, spot cones, and camera-attached ("headlamp") lights
-- FPS-style camera (perspective and orthographic), mouse look, WASDQE movement
+- FPS-style camera (perspective and orthographic), mouse look, WASDQE +
+  PgUp/PgDn movement
+- Interactive scene editor: file browser to add objects (F4), grab/place,
+  rotate/scale, delete, and `.obzscene` save/load (F5/F9)
 - Software rasterizer with near/far clip-space triangle clipping, plus
   degenerate, backface, and viewport culling; multithreaded vertex transform
   and banded scan conversion; SSE2-accelerated inner loop where available

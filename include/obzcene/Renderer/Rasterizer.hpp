@@ -38,6 +38,9 @@
 #include "obzcene/Core/Casts.hpp"
 #include "obzcene/Core/Threading.hpp"
 #include "obzcene/Core/Types.hpp"
+#include "obzcene/Math/AABB.hpp"
+#include "obzcene/Math/Mat3.hpp"
+#include "obzcene/Math/Mat4.hpp"
 #include "obzcene/Math/Pack4.hpp"
 #include "obzcene/Math/Vec2.hpp"
 #include "obzcene/Math/Vec3.hpp"
@@ -73,6 +76,21 @@ struct RasterOptions
 inline constexpr Color kClearColor{22, 22, 28};
 /** @brief Default wireframe line colour shared by the viewer and snapshot paths. */
 inline constexpr Color kWireframeColor{220, 220, 230};
+
+/**
+ * @brief Model-space -> world-space transform for one rendered object.
+ *
+ * `matrix` maps vertex positions to world space; `normal` is the
+ * inverse-transpose of its 3x3 block (rotations and uniform scales are
+ * exactly orthogonal-up-to-scale, so a rotation matrix suffices there).
+ * Identity by default, in which case rendering is exactly the pre-transform
+ * behaviour.
+ */
+struct ModelTransform
+{
+  math::Mat4f matrix{math::Mat4f::identity()};
+  math::Mat3f normal{math::Mat3f::identity()};
+};
 
 /**
  * @brief Internal vertex bookkeeping, clipping and perspective-correct
@@ -569,12 +587,13 @@ inline auto draw_line(FrameBuffer& fb, int x0, int y0, int x1, int y1, const Col
  *       used only by the wireframe debug path (no culling).
  */
 inline auto rasterize_wireframe(const Mesh& mesh, const FragmentUniforms& uniforms, FrameBuffer& fb,
-                                const Color& color) -> void
+                                const Color&       color,
+                                const math::Mat4f& model = math::Mat4f::identity()) -> void
 {
   const auto vp        = uniforms.camera.view_projection();
-  auto       to_screen = [&](const math::Vec3f& world) -> math::Vec2i
+  auto       to_screen = [&](const math::Vec3f& position) -> math::Vec2i
   {
-    const auto clip = vp * math::Vec4f{world.x, world.y, world.z, 1.0F};
+    const auto clip = vp * (model * math::Vec4f{position.x, position.y, position.z, 1.0F});
     const auto ndc  = math::Vec2f{clip.x / clip.w, clip.y / clip.w};
     return math::Vec2i{static_cast<int>((ndc.x * 0.5F + 0.5F) * fb.width()),
                        static_cast<int>((0.5F - ndc.y * 0.5F) * fb.height())};
@@ -602,6 +621,8 @@ inline auto rasterize_wireframe(const Mesh& mesh, const FragmentUniforms& unifor
  * @param mesh      Geometry to draw.
  * @param uniforms  Camera/lights/textures for shading.
  * @param options   Backface switch and worker count.
+ * @param model     Model transform applied per vertex (identity = mesh space
+ *                  is world space).
  * @return Per-frame counters (see obzcene::RenderStats); triangle counters
  *         are summed over the setup chunks, pixel counters over the bands.
  *
@@ -610,7 +631,8 @@ inline auto rasterize_wireframe(const Mesh& mesh, const FragmentUniforms& unifor
  *       shrunk when a much smaller mesh follows a large one.
  */
 inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameBuffer& fb,
-                      const RasterOptions& options = {}) -> RenderStats
+                      const RasterOptions& options = {}, const ModelTransform& model = {})
+  -> RenderStats
 {
   using raster_detail::PreparedVertex;
   using raster_detail::RasterJob;
@@ -674,12 +696,13 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
       for (usz i = vertex_begin; i < vertex_end; ++i)
       {
         const auto& vertex = mesh_ptr->vertices[i];
-        const auto  clip =
-          vp * math::Vec4f{vertex.position.x, vertex.position.y, vertex.position.z, 1.0F};
-        auto& out  = pool_data[i];
-        out.world  = vertex.position;
-        out.normal = vertex.normal;
-        out.uv     = vertex.texcoord;
+        const auto  world =
+          model.matrix * math::Vec4f{vertex.position.x, vertex.position.y, vertex.position.z, 1.0F};
+        const auto clip = vp * world;
+        auto&      out  = pool_data[i];
+        out.world       = math::Vec3f{world.x, world.y, world.z};
+        out.normal      = model.normal * vertex.normal;
+        out.uv          = vertex.texcoord;
         raster_detail::project_vertex(out, clip, fb_width, fb_height);
       }
 
@@ -900,22 +923,58 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
  *       on clear colour, wireframe colour and culling options. The whole mesh
  *       is skipped cheaply when its (valid) bounds miss the camera frustum.
  */
-inline auto render_frame(FrameBuffer& fb, const Mesh& mesh, const FragmentUniforms& uniforms,
-                         bool wireframe) -> RenderStats
+/**
+ * @brief Render one object into `fb` WITHOUT clearing (frustum-culled).
+ * @param cull_bounds  World-space bounds for the whole-mesh frustum test;
+ *                     defaults to `mesh.bounds` (identity model).
+ * @see render_frame (single-object wrapper that clears first).
+ */
+inline auto render_object(FrameBuffer& fb, const Mesh& mesh, const FragmentUniforms& uniforms,
+                          bool wireframe, const ModelTransform& model = {},
+                          const math::AABBf* cull_bounds = nullptr) -> RenderStats
 {
-  fb.clear(kClearColor);
-  fb.clear_depth();
-  const auto& bounds = mesh.bounds;
+  const auto& bounds = cull_bounds != nullptr ? *cull_bounds : mesh.bounds;
   if (bounds.min.x <= bounds.max.x && !uniforms.camera.frustum().contains_aabb(bounds))
   {
     return {};
   }
   if (wireframe)
   {
-    rasterize_wireframe(mesh, uniforms, fb, kWireframeColor);
+    rasterize_wireframe(mesh, uniforms, fb, kWireframeColor, model.matrix);
     return {};
   }
-  return rasterize(mesh, uniforms, fb, RasterOptions{.backface_cull = true});
+  return rasterize(mesh, uniforms, fb, RasterOptions{.backface_cull = true}, model);
+}
+
+/**
+ * @brief Clear `fb` and render one frame of `mesh` into it.
+ * @param fb         Target framebuffer (cleared first).
+ * @param mesh       Geometry to draw.
+ * @param uniforms   Camera/lights/textures for shading (lights already resolved).
+ * @param wireframe  Draw outlines instead of shaded triangles.
+ * @param model      Model transform (identity = mesh space is world space).
+ * @param cull_bounds  Optional world-space cull bounds (default: mesh.bounds).
+ * @return Rasterizer statistics (empty when the mesh misses the view frustum,
+ *         default-constructed beyond the clear for wireframe frames).
+ * @note Shared by the interactive viewer and the snapshot path so both agree
+ *       on clear colour, wireframe colour and culling options. For
+ *       multi-object scenes, clear once with clear_frame() and call
+ *       render_object() per object instead.
+ */
+inline auto render_frame(FrameBuffer& fb, const Mesh& mesh, const FragmentUniforms& uniforms,
+                         bool wireframe, const ModelTransform& model = {},
+                         const math::AABBf* cull_bounds = nullptr) -> RenderStats
+{
+  fb.clear(kClearColor);
+  fb.clear_depth();
+  return render_object(fb, mesh, uniforms, wireframe, model, cull_bounds);
+}
+
+/** @brief Clear colour/depth only; pair with render_object() for multi-object frames. */
+inline auto clear_frame(FrameBuffer& fb) -> void
+{
+  fb.clear(kClearColor);
+  fb.clear_depth();
 }
 
 } // namespace obzcene

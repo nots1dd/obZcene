@@ -72,13 +72,11 @@ suite already allows between the optimized and reference rasterizers.
    runs them automatically. A minimal workflow (configure, build, `ctest`,
    `fmt-check`) would cover most regressions.
 
-2. **Untested components.** `Window`, `Viewer`, `ImageWriter` (`write_ppm`),
-   `ImageLoader` (`load_image`), the `App`/`Scene` helpers
-   (`compute_scene_view`, `make_lights`, `load_scene`, `render_snapshot`),
-   `Interpolation.hpp`, and the `Backtrace`/`utils` helpers have no tests.
-   The SDL-bound pieces are understandably hard; the rest are plain functions
-   and easy to cover. `write_ppm` in particular can be round-trip tested
-   against a known buffer.
+2. **Untested components.** `Window`, `Viewer` (the SDL frame loop), and
+   `ImageWriter` (`write_ppm`) have no automated tests. The editor's non-SDL
+   state gained coverage with `scene-tests` (scene-file round-trip, file
+   browser, model cache, transforms), but the interactive loop itself is
+   still exercised only manually.
 
 3. **No golden-image regression test.** Snapshot mode produces a PPM but
    nothing compares it to a reference, so visual regressions (lighting,

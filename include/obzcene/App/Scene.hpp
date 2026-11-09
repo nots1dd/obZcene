@@ -19,6 +19,7 @@
 #include "obzcene/Renderer/Light.hpp"
 #include "obzcene/Renderer/Mesh.hpp"
 #include "obzcene/Texture/Texture.hpp"
+#include "obzcene/Viewer/Scene.hpp"
 
 #include <filesystem>
 #include <optional>
@@ -50,8 +51,10 @@ struct SceneView
  */
 struct SceneOptions
 {
-  /** @brief Path to the OBJ model (required). */
+  /** @brief Path to the OBJ model (required unless --scene is given). */
   std::filesystem::path model;
+  /** @brief Scene file to load (adds objects/lights; saved to on F5). */
+  std::filesystem::path scene_file;
   /** @brief Framebuffer / window width. */
   int width{1280};
   /** @brief Framebuffer / window height. */
@@ -81,23 +84,27 @@ struct SceneOptions
  */
 struct Scene
 {
-  SceneOptions         options;
-  SceneView            view;
-  Mesh                 mesh;
-  std::vector<Texture> textures;
-  std::vector<LightF>  lights;
+  SceneOptions   options;
+  SceneView      view;
+  obzcene::Scene scene;
+  /** @brief File the scene was loaded from (when `--scene` was used). */
+  std::filesystem::path scene_file;
+  /** @brief Camera pose from the scene file (overrides the framing when set). */
+  std::optional<math::Vec3f> saved_camera_position;
+  float                      saved_camera_yaw{0.0F};
+  float                      saved_camera_pitch{0.0F};
 };
 
 /**
- * @brief Frame a camera so the whole mesh is comfortably visible.
- * @param mesh   The loaded geometry.
+ * @brief Frame a camera so the whole scene is comfortably visible.
+ * @param bounds World-space bounds of the scene (see Scene::world_bounds).
  * @param width,height  Framebuffer size (for aspect).
  * @param fov_y  Vertical field of view (degrees).
  * @return A SceneView with `eye = center + (0, 0.3·radius, fit)` where `fit`
- *         places the model inside the vertical FOV, and movement speed scaled
+ *         places the scene inside the vertical FOV, and movement speed scaled
  *         to `radius`.
  */
-[[nodiscard]] auto compute_scene_view(const Mesh& mesh, int width, int height, float fov_y)
+[[nodiscard]] auto compute_scene_view(const math::AABBf& bounds, int width, int height, float fov_y)
   -> SceneView;
 
 /**

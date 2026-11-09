@@ -43,7 +43,8 @@ auto run_viewer(const Scene& scene) -> void
   viewer.set_wireframe(scene.options.wireframe);
   viewer.set_headlamp(scene.options.headlamp);
   viewer.set_ambient(scene.options.ambient);
-  viewer.run(scene.mesh, scene.lights, scene.textures);
+  auto scene_copy = scene.scene; // the Viewer edits its own copy
+  viewer.run(std::move(scene_copy), scene.scene_file.string(), scene.options.no_textures);
 }
 
 } // namespace
@@ -58,6 +59,7 @@ auto entry(int argc, char** argv) -> int
   CLI::App cli{"obZcene - software rasterizer viewer"};
   cli.add_option("model", scene_options.model, "Path to a Wavefront .obj model")
     ->check(CLI::ExistingFile);
+  cli.add_option("--scene", scene_options.scene_file, "Load a .obzscene scene file");
   cli.add_option("-s,--snapshot", snapshot_path, "Render a single frame to a PPM file and exit");
   cli.add_option("-W,--width", scene_options.width, "Output width");
   cli.add_option("-H,--height", scene_options.height, "Output height");

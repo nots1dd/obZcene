@@ -33,15 +33,18 @@ two run modes:
 
 `Scene.cpp` contains the load-time helpers:
 
-- `load_scene()` — runs the OBJ parser, builds the `Mesh`, loads diffuse
-  textures (unless `--no-textures`), computes the camera framing and lights.
+- `load_scene()` — builds the editor `Scene`: loads a `--scene` file when
+  given (objects + lights + saved camera pose via `apply_scene_file`), then
+  adds the positional `--model` OBJ on top through the model cache, and
+  computes the camera framing over the combined world bounds.
 - `compute_scene_view()` — derives an eye position, look-at center, bounding
-  radius, and movement speed from the mesh's AABB so the model is visible on
-  frame one.
+  radius, and movement speed from the scene's world-space AABB so the scene
+  is visible on frame one.
 - `make_lights()` — either a default three-light rig (directional "sun" +
   two radius-scaled point lights) or the user-specified `--light-pos` /
-  `--light-dir` overrides.
-- `render_snapshot()` — the headless single-frame path.
+  `--light-dir` overrides (only used when the scene file provided none).
+- `render_snapshot()` — the headless single-frame path; renders every object
+  with its model matrix into one framebuffer.
 
 ### Core (`include/obzcene/Core`, `src/Core`)
 
@@ -152,14 +155,33 @@ The heart of the engine.
 
 ### Viewer (`include/obzcene/Viewer`, `src/Viewer`)
 
-- `Viewer` — the interactive loop. Owns the `Window`, `CameraF`, and
-  `FrameBuffer`. Each frame: compute `dt`, handle input (WASDQE + PgUp/PgDn
-  movement, mouse look, light manipulation), resize the framebuffer if the window
-  changed, clear, resolve lights, rasterize (solid or wireframe), draw the
-  overlay, present. Frame time is smoothed with an exponential moving average.
+- `Scene` — the editor's document model: a flat list of `SceneObject`s
+  (shared `Model` + position/yaw/scale transform) plus the light list.
+  Models are cached by canonical path (`Scene::load_model`), so adding the
+  same OBJ twice instances it instead of reloading. `world_bounds()` gives
+  the transform-aware combined AABB used for camera framing.
+- `SceneObject.hpp` — one placed instance: shared model pointer + TRS
+  transform. `model_matrix()` = translate · rotate_y · scale, applied
+  per-vertex by the rasterizer (see ModelTransform in Rasterizer.hpp);
+  `transformed_bounds()` maps the mesh AABB to world space.
+- `SceneFile.hpp` — header-only `.obzscene` persistence: a line-oriented
+  text format (`object` / `light` / `camera`) parsed with `std::from_chars`;
+  malformed lines are skipped with a warning. `apply_scene_file` /
+  `save_scene` (src/Viewer/Scene.cpp) bridge it to `Scene`.
+- `FileBrowser.hpp` — a UI-free directory-listing picker state machine:
+  current directory, sorted entries (directories first, `.obj` filter),
+  cursor, descend/pick/parent navigation. The overlay renders it, the viewer
+  drives it.
+- `Viewer` — the interactive loop and editor. Owns the `Window`, `CameraF`,
+  `FrameBuffer` and the `Scene`. Each frame: compute `dt`, dispatch input by
+  mode (fly camera / grab-and-place object / file browser), resize the
+  framebuffer if the window changed, clear, resolve lights, rasterize every
+  object with its model matrix, draw the HUD + browser overlay, present.
+  Frame time is smoothed with an exponential moving average.
 - `Overlay` — a fixed 5×7 bitmap font (ASCII 0x20–0x7E) drawn directly into
-  the framebuffer. `draw_stats()` paints the HUD: rasterizer counters, mesh
-  info, light list, camera position, FPS, and the help line.
+  the framebuffer, plus editor panels: `draw_hud()` (scene stats, selection,
+  light, key legend), `draw_status_bar()` (mode/selection/messages) and
+  `draw_browser()`.
 
 ### Backtrace + utils
 
@@ -171,32 +193,34 @@ environment variable name.
 
 ## Frame data flow (solid interactive frame)
 
-1. **Input** — `Window::handle_events()`, mouse delta, key states → camera
-   movement (`src/Viewer/Viewer.cpp`).
+1. **Input** — `Window::handle_events()`, then mode dispatch: fly camera,
+   grab (object placement), or the file browser (`src/Viewer/Viewer.cpp`).
 2. **Light resolution** — `resolve_lights_into(m_lights, m_camera,
    m_resolved_lights)` converts camera-space lights to world space into a
    reusable buffer (no per-frame allocation); headlamp appended if enabled.
-3. **Clear** — colour to dark grey, depth to +∞ (via `render_frame`, which
-   first skips the mesh entirely when its bounds miss the camera frustum).
-4. **Vertex stage** — every mesh vertex transformed by
-   `camera.view_projection()` (parallel over vertex chunks); screen position,
-   `1/w`, and NDC depth cached in a reused pool.
-5. **Triangle culling** — near/far classification, degenerate, backface,
-   viewport, in parallel over triangle chunks; survivors become `RasterJob`s
-   binned per framebuffer band. Straddlers are clipped in clip space rather
-   than dropped, and counted in `RenderStats`.
-6. **Rasterization** — scanline fill with incremental barycentric weights,
-   parallel over horizontal bands; SSE2 4-wide coverage/depth evaluation when
-   available.
-7. **Fragment stage** — perspective-correct attributes → depth test →
-   `shade_fragment()` (texture × diffuse, then all lights, plus emissive) →
-   8-bit colour write.
-8. **Overlay** — HUD text drawn into the same framebuffer.
-9. **Present** — framebuffer uploaded to the SDL streaming texture.
+3. **Clear** — colour to dark grey, depth to +∞ (`clear_frame`).
+4. **Per object** — the viewer builds a `ModelTransform` (model + normal
+   matrices) and the transform-aware world AABB per `SceneObject`, then calls
+   `render_object`, which frustum-culls against those bounds and rasterizes:
+   - **Vertex stage** — every vertex transformed by
+     `view_projection × model` (parallel over vertex chunks); screen position,
+     `1/w`, and NDC depth cached in a reused pool.
+   - **Triangle culling** — near/far classification, degenerate, backface,
+     viewport, in parallel over triangle chunks; survivors become
+     `RasterJob`s binned per framebuffer band. Straddlers are clipped in clip
+     space rather than dropped, and counted in `RenderStats`.
+   - **Rasterization** — scanline fill with incremental barycentric weights,
+     parallel over horizontal bands; SSE2 4-wide coverage/depth evaluation
+     when available.
+   - **Fragment stage** — perspective-correct attributes → depth test →
+     `shade_fragment()` (texture × diffuse, then all lights, plus emissive) →
+     8-bit colour write.
+5. **Overlay** — HUD, status bar and (when open) the browser panel drawn into
+   the same framebuffer.
+6. **Present** — framebuffer uploaded to the SDL streaming texture.
 
-Snapshot mode runs steps 3–7 once (via the shared `obzcene::render_frame()`
-in `Renderer/Rasterizer.hpp`, also used by the viewer) and
-writes the result with `write_ppm()`.
+Snapshot mode runs steps 3–4 once per object and writes the result with
+`write_ppm()`.
 
 ## Key design decisions
 
@@ -206,8 +230,9 @@ writes the result with `write_ppm()`.
   directly.
 - **Data flow is pull-based and explicit.** `ObjData → Mesh → rasterize()`;
   textures and lights are plain vectors passed by const reference through
-  `FragmentUniforms`. There is no scene graph, entity system, or resource
-  cache.
+  `FragmentUniforms`. There is no scene graph or entity system — the editor
+  scene is a flat list of `SceneObject`s (shared model + TRS transform), and
+  the only cache is the path-keyed model cache in `Scene`.
 - **Index alignment is the contract.** `Mesh::materials[i]`,
   `FragmentUniforms::diffuse_textures[i]`, and `MeshTriangle::material_index`
   all refer to the same index, guaranteed by building both from the same

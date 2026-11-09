@@ -30,6 +30,7 @@ add_executable(obZcene
   src/Texture/ImageWriter.cpp
   src/Texture/TextureLoader.cpp
   src/Viewer/Overlay.cpp
+  src/Viewer/Scene.cpp
   src/Viewer/Viewer.cpp
   src/obZcene.cpp
 )
@@ -159,6 +160,9 @@ add_test(NAME culling-tests COMMAND culling-tests)
 add_executable(overlay-tests
   tests/test_overlay.cpp
   src/Viewer/Overlay.cpp
+  src/Viewer/Scene.cpp
+  src/Texture/TextureLoader.cpp
+  src/Core/Logger.cpp
 )
 
 target_include_directories(overlay-tests PRIVATE
@@ -167,6 +171,34 @@ target_include_directories(overlay-tests PRIVATE
 
 target_link_libraries(overlay-tests PRIVATE
   Catch2::Catch2WithMain
+  spdlog::spdlog
+  Threads::Threads
+  SDL2::SDL2
+  SDL2_image::SDL2_image
 )
 
 add_test(NAME overlay-tests COMMAND overlay-tests)
+
+add_executable(scene-tests
+  tests/test_scene.cpp
+  src/Viewer/Scene.cpp
+  src/Texture/TextureLoader.cpp
+  src/Core/Logger.cpp
+)
+
+target_include_directories(scene-tests PRIVATE
+  include
+)
+
+target_link_libraries(scene-tests PRIVATE
+  Catch2::Catch2WithMain
+  spdlog::spdlog
+  Threads::Threads
+  SDL2::SDL2
+  SDL2_image::SDL2_image
+)
+
+add_test(NAME scene-tests COMMAND scene-tests)
+set_tests_properties(scene-tests PROPERTIES
+  ENVIRONMENT "ASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)

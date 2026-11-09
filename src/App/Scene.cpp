@@ -15,13 +15,12 @@
 #include "obzcene/App/Scene.hpp"
 
 #include "obzcene/Core/Logger.hpp"
-#include "obzcene/File/Obj/Parser/ObjParser.hpp"
 #include "obzcene/Renderer/Color.hpp"
 #include "obzcene/Renderer/FrameBuffer.hpp"
 #include "obzcene/Renderer/Rasterizer.hpp"
 #include "obzcene/Renderer/Shader.hpp"
 #include "obzcene/Texture/ImageWriter.hpp"
-#include "obzcene/Texture/TextureLoader.hpp"
+#include "obzcene/Viewer/SceneFile.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -31,11 +30,11 @@
 namespace obzcene::app
 {
 
-auto compute_scene_view(const Mesh& mesh, int width, int height, float fov_y) -> SceneView
+auto compute_scene_view(const math::AABBf& bounds, int width, int height, float fov_y) -> SceneView
 {
-  const auto center     = (mesh.bounds.max + mesh.bounds.min) * 0.5F;
-  const auto radius     = std::max(math::length(mesh.bounds.max - mesh.bounds.min) * 0.5F, 1.0e-3F);
-  const auto half       = (mesh.bounds.max - mesh.bounds.min) * 0.5F;
+  const auto center     = (bounds.max + bounds.min) * 0.5F;
+  const auto radius     = std::max(math::length(bounds.max - bounds.min) * 0.5F, 1.0e-3F);
+  const auto half       = (bounds.max - bounds.min) * 0.5F;
   const auto aspect     = std::max(static_cast<float>(width) / height, 1.0F);
   const auto half_fov   = math::deg_to_rad(fov_y) * 0.5F;
   const auto fit_half   = std::max(half.y, math::length(math::Vec2f{half.x, half.z}) / aspect);
@@ -91,30 +90,68 @@ auto make_lights(const SceneView& view, const SceneOptions& options) -> std::vec
 
 auto load_scene(const SceneOptions& options) -> std::optional<Scene>
 {
-  auto data = parse_obj(options.model.string());
-  if (data.positions.empty())
+  auto scene       = Scene{};
+  scene.options    = options;
+  scene.scene_file = options.scene_file;
+
+  // A scene file, when given, loads first; the positional model is added on
+  // top so both can be combined.
+  if (!options.scene_file.empty())
   {
-    LOG_ERROR("Failed to load model '{}'", options.model.string());
+    const auto data = load_scene_file(options.scene_file);
+    if (!data.has_value())
+    {
+      LOG_ERROR("Failed to open scene file '{}'", options.scene_file.string());
+      return std::nullopt;
+    }
+    const auto scene_dir = options.scene_file.has_parent_path() ? options.scene_file.parent_path()
+                                                                : std::filesystem::path{"."};
+    apply_scene_file(scene.scene, *data, scene_dir, options.no_textures);
+    if (data->camera_position.has_value())
+    {
+      scene.saved_camera_position = data->camera_position;
+      scene.saved_camera_yaw      = data->camera_yaw.value_or(0.0F);
+      scene.saved_camera_pitch    = data->camera_pitch.value_or(0.0F);
+    }
+  }
+
+  if (!options.model.empty())
+  {
+    auto model = scene.scene.load_model(options.model, options.no_textures);
+    if (model == nullptr)
+    {
+      LOG_ERROR("Failed to load model '{}'", options.model.string());
+      return std::nullopt;
+    }
+    const auto index   = scene.scene.add_object(std::move(model), math::Vec3f{0.0F});
+    auto&      object  = scene.scene.objects[index];
+    object.name        = options.model.filename().string();
+    object.source_path = options.model;
+  }
+
+  if (scene.scene.objects.empty())
+  {
+    LOG_ERROR("Nothing to render: no model and no scene file produced any objects");
     return std::nullopt;
   }
-  LOG_INFO("Loaded '{}': {} positions, {} materials, {} objects", options.model.string(),
-           data.positions.size(), data.materials.size(), data.objects.size());
 
-  auto mesh = build_mesh(data);
-  LOG_INFO("Mesh: {} vertices, {} triangles, {} materials", mesh.vertices.size(),
-           mesh.triangles.size(), mesh.materials.size());
-
-  const auto model_dir =
-    options.model.has_parent_path() ? options.model.parent_path() : std::filesystem::path{"."};
-  const auto textures =
-    options.no_textures ? std::vector<Texture>{} : load_material_textures(data, model_dir);
-
-  auto scene     = Scene{};
-  scene.options  = options;
-  scene.view     = compute_scene_view(mesh, options.width, options.height, options.fov_y);
-  scene.mesh     = std::move(mesh);
-  scene.textures = textures;
-  scene.lights   = make_lights(scene.view, options);
+  scene.view =
+    compute_scene_view(scene.scene.world_bounds(), options.width, options.height, options.fov_y);
+  if (scene.saved_camera_position.has_value())
+  {
+    // The framing still provides movement speed and the reset pose; the saved
+    // pose wins for the actual starting camera.
+    scene.view.eye = *scene.saved_camera_position;
+    const auto dir =
+      math::Vec3f{-std::sin(scene.saved_camera_yaw) * std::cos(scene.saved_camera_pitch),
+                  std::sin(scene.saved_camera_pitch),
+                  -std::cos(scene.saved_camera_yaw) * std::cos(scene.saved_camera_pitch)};
+    scene.view.center = scene.view.eye + dir;
+  }
+  if (scene.scene.lights.empty())
+  {
+    scene.scene.lights = make_lights(scene.view, options);
+  }
   return scene;
 }
 
@@ -123,15 +160,35 @@ auto render_snapshot(const Scene& scene, const std::string& path) -> bool
   CameraF camera;
   setup_camera(camera, scene.view, scene.options.width, scene.options.height, scene.options.fov_y);
   auto frame_buffer  = FrameBuffer{scene.options.width, scene.options.height};
-  auto render_lights = resolve_lights(scene.lights, camera);
+  auto render_lights = resolve_lights(scene.scene.lights, camera);
   if (scene.options.headlamp)
   {
     render_lights.push_back(LightF::directional(camera.forward()));
   }
-  const auto uniforms =
-    FragmentUniforms{camera, render_lights, scene.textures, scene.options.ambient};
+  clear_frame(frame_buffer);
   const auto t0    = std::chrono::steady_clock::now();
-  const auto stats = render_frame(frame_buffer, scene.mesh, uniforms, scene.options.wireframe);
+  auto       stats = RenderStats{};
+  for (const auto& object : scene.scene.objects)
+  {
+    if (object.model == nullptr)
+    {
+      continue;
+    }
+    const auto bounds    = object.transformed_bounds(object.model->mesh.bounds);
+    const auto transform = ModelTransform{object.model_matrix(), object.normal_matrix()};
+    const auto uniforms =
+      FragmentUniforms{camera, render_lights, object.model->textures, scene.options.ambient};
+    const auto sub = render_object(frame_buffer, object.model->mesh, uniforms,
+                                   scene.options.wireframe, transform, &bounds);
+    stats.triangles_processed += sub.triangles_processed;
+    stats.triangles_culled_backface += sub.triangles_culled_backface;
+    stats.triangles_culled_viewport += sub.triangles_culled_viewport;
+    stats.triangles_culled_nearfar += sub.triangles_culled_nearfar;
+    stats.triangles_degenerate += sub.triangles_degenerate;
+    stats.triangles_rendered += sub.triangles_rendered;
+    stats.pixels_shaded += sub.pixels_shaded;
+    stats.pixels_written += sub.pixels_written;
+  }
   const auto elapsed_ms =
     std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
   LOG_INFO("Rasterized in {:.1f} ms: {} tris processed, {} drawn (bf {}, vp {}, near {}, deg {}), "

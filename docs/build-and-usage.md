@@ -29,7 +29,8 @@ The binaries land in `build/obZcene` (release) and `build-dbg/obZcene`
 
 | Option | Default | Effect |
 |---|---|---|
-| `model` (positional) | — | Path to a Wavefront `.obj` file (must exist) |
+| `model` (positional) | — | Path to a Wavefront `.obj` model to add at the origin (must exist) |
+| `--scene FILE` | — | Load a `.obzscene` scene file (objects + lights + camera) |
 | `-s, --snapshot PATH` | off | Render one frame to a PPM file and exit (headless) |
 | `-W, --width N` | 1280 | Framebuffer/window width |
 | `-H, --height N` | 720 | Framebuffer/window height |
@@ -44,22 +45,28 @@ The binaries land in `build/obZcene` (release) and `build-dbg/obZcene`
 | `--light-intensity X` | 1.0 | Intensity of the user light |
 
 Setting `--light-pos` or `--light-dir` replaces the default three-light rig
-(sun + two point lights) entirely.
+(sun + two point lights) entirely. `--scene` and `model` can be combined: the
+scene file loads first, the positional model is added on top.
 
 ### Examples
 
 ```sh
-# Interactive viewer
+# Interactive viewer/editor with one model
 ./build/obZcene assets/models/plane/11803_Airplane_v1_l1.obj
 
-# Headless 800x600 snapshot
-./build/obZcene assets/models/Cube/cube.obj -s out.ppm -W 800 -H 600
+# Open a saved scene
+./build/obZcene --scene myscene.obzscene
+
+# Headless 800x600 snapshot of a scene
+./build/obZcene --scene myscene.obzscene -s out.ppm -W 800 -H 600
 
 # Custom spot light, no default rig
 ./build/obZcene model.obj --light-pos 0 5 5 --light-dir 0 -1 -0.5 --light-intensity 2
 ```
 
 ## Viewer controls
+
+Fly mode (default — the camera moves freely):
 
 | Input | Action |
 |---|---|
@@ -74,9 +81,60 @@ Setting `--light-pos` or `--light-dir` replaces the default three-light rig
 | `[` / `]` | Cycle the active light (skips directional lights) |
 | Arrow keys | Move the active light in the camera plane |
 | `Home` / `End` | Move the active light up / down |
+| `Tab` | Cycle the selected object |
+| `G` | Grab the selected object (enters Grab mode) |
+| `Delete` | Remove the selected object |
+| `F4` | Open the file browser to add an object |
+| `F5` | Save the scene to its file (or `scene.obzscene`) |
+| `F9` | Reload the scene from its file |
+| `Esc` | Quit |
 
-Movement speed scales with the model's bounding radius (computed at load
-time), so small and large models both feel reasonable.
+Grab mode (placing an object — entered automatically after adding one):
+
+| Input | Action |
+|---|---|
+| Arrow keys | Move the object in the camera plane |
+| `Home` / `End` | Move the object up / down |
+| `PgUp` / `PgDn` | Rotate the object (yaw) |
+| `+` / `-` | Scale the object up / down |
+| `Enter` | Confirm placement (back to Fly mode) |
+| `Esc` | Cancel the grab (back to Fly mode) |
+
+File browser (open with `F4`):
+
+| Input | Action |
+|---|---|
+| `Up` / `Down` | Move the cursor |
+| `Enter` | Descend into a directory / pick the highlighted `.obj` |
+| `Backspace` | Go to the parent directory |
+| `F4` / `Esc` | Close without picking |
+
+Movement speed scales with the scene's bounding radius (computed at load
+time), so small and large scenes both feel reasonable.
+
+## Scenes
+
+A scene is a flat list of objects (shared model + transform: position, yaw,
+uniform scale) plus lights and a camera pose. Models are cached by path, so
+adding the same OBJ file twice instances it rather than reloading.
+
+### Scene file format (`.obzscene`)
+
+Plain text, one entry per line, `#` comments allowed, blank lines ignored:
+
+```
+version 1
+object <model.obj> <px> <py> <pz> <yaw> <scale>
+light  dir   <dx> <dy> <dz> <r> <g> <b> <intensity>
+light  point <px> <py> <pz> <r> <g> <b> <intensity>
+light  spot  <px> <py> <pz> <dx> <dy> <dz> <r> <g> <b> <intensity>
+camera <px> <py> <pz> <yaw> <pitch>
+```
+
+Angles are radians, colours are linear RGB in 0..1. Relative object paths
+resolve against the scene file's own directory. Malformed lines are skipped
+with a warning, so a partially corrupt file still opens. Camera-attached
+lights (the headlamp) are runtime state and are never saved.
 
 ## Snapshot mode
 

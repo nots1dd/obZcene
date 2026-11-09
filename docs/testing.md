@@ -15,7 +15,7 @@ Or run an individual binary directly, e.g. `./build/math-tests`.
 
 ## Test binaries
 
-Seven ctest executables, 13 test files, roughly 200 `TEST_CASE`s:
+Eight ctest executables, 14 test files, roughly 210 `TEST_CASE`s:
 
 | Binary | Files | Covers |
 |---|---|---|
@@ -25,7 +25,8 @@ Seven ctest executables, 13 test files, roughly 200 `TEST_CASE`s:
 | `light-tests` | `test_light.cpp` | Attenuation, spot cones, Blinn-Phong, `shade_point`, camera-space light resolution |
 | `renderer-tests` | `test_renderer.cpp` | `build_mesh`, texture sampling/wrapping, end-to-end quad rasterization with shading |
 | `culling-tests` | `test_culling.cpp` | Rasterizer cull stages, perspective-correct interpolation helpers |
-| `overlay-tests` | `test_overlay.cpp` | Bitmap font metrics and text drawing |
+| `overlay-tests` | `test_overlay.cpp` | Bitmap font metrics, text drawing, the editor HUD |
+| `scene-tests` | `test_scene.cpp` | SceneObject transforms/bounds, `.obzscene` round-trip and malformed-line tolerance, file-browser navigation/filtering, model cache instancing |
 
 Asset-dependent tests read `ASSETS_DIR`; the parser-tests target also defines
 it as a compile definition, and test code falls back to the relative path
@@ -37,6 +38,9 @@ it as a compile definition, and test code falls back to the relative path
 - The rasterizer is tested both through its helpers (`raster_detail`,
   perspective blend) and through full quad-rendering scenarios.
 - Parsers are tested against real files in `assets/`.
+- The editor's non-SDL state is covered by `scene-tests`: scene-object
+  transforms, scene-file round-trip (including malformed lines), file-browser
+  navigation, and model-cache instancing.
 
 ## Known gaps
 
