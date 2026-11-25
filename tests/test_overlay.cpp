@@ -152,12 +152,12 @@ TEST_CASE("draw_hud renders a multi-line block", "[overlay][stats]")
   obzcene::FrameBuffer fb{480, 360};
   fb.clear(obzcene::Color{22, 22, 28});
 
-  auto scene   = obzcene::Scene{};
-  auto model   = std::make_shared<obzcene::Model>();
-  model->mesh  = sample_mesh();
-  auto object  = obzcene::SceneObject{};
-  object.model = model;
-  object.name  = "sample";
+  auto scene    = obzcene::Scene{};
+  auto model    = std::make_shared<obzcene::Model>();
+  model->mesh   = sample_mesh();
+  auto object   = std::make_shared<obzcene::SceneObject>();
+  object->model = model;
+  object->name  = "sample";
   scene.objects.push_back(object);
   auto       stats  = sample_stats();
   const auto lights = sample_lights();

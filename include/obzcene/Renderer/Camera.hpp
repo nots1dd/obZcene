@@ -204,8 +204,7 @@ public:
 
   /**
    * @brief Combined world-to-clip transform (`projection * view`).
-   * @note This is the matrix obzcene::world_to_clip and obzcene::rasterize
-   *       apply to every vertex.
+   * @note This is the matrix obzcene::rasterize applies to every vertex.
    */
   [[nodiscard]] auto view_projection() const -> math::Mat4<T>
   {

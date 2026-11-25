@@ -15,8 +15,8 @@
  */
 
 #include "obzcene/Core/Types.hpp"
+#include "obzcene/Math/Vec2.hpp"
 #include "obzcene/Math/Vec3.hpp"
-#include "obzcene/Math/Vec4.hpp"
 #include "obzcene/Renderer/Camera.hpp"
 #include "obzcene/Renderer/Color.hpp"
 #include "obzcene/Renderer/Light.hpp"
@@ -34,6 +34,36 @@ namespace obzcene
  * lights (obzcene::resolve_lights); `diffuse_textures[b]` matches
  * `materials[b]` by index (see src/Texture/TextureLoader.cpp).
  */
+/**
+ * @brief Linear distance fog: fragments fade to `color` between `start` and
+ *        `end` (world units from the camera). Disabled while end <= start.
+ */
+struct FogSettings
+{
+  /** @brief Colour distant fragments converge to (match the sky for depth cueing). */
+  math::Vec3f color{0.5F, 0.66F, 1.0F};
+  /** @brief Distance where fog starts to appear. */
+  float start{0.0F};
+  /** @brief Distance where fragments are fully fogged (0/negative = fog off). */
+  float end{0.0F};
+
+  /** @brief True when fog is active. */
+  [[nodiscard]] auto enabled() const -> bool { return end > start; }
+};
+
+/**
+ * @brief Fog blend factor for a fragment at `distance` from the camera.
+ * @return 1 = unfogged, 0 = fully fogged (always 1 when fog is disabled).
+ */
+[[nodiscard]] inline auto fog_visibility(const FogSettings& fog, float distance) -> float
+{
+  if (!fog.enabled())
+  {
+    return 1.0F;
+  }
+  return math::clamp((fog.end - distance) / (fog.end - fog.start), 0.0F, 1.0F);
+}
+
 struct FragmentUniforms
 {
   /** @brief Camera used to compute the view direction. */
@@ -44,6 +74,13 @@ struct FragmentUniforms
   const std::vector<Texture>& diffuse_textures;
   /** @brief Global scaling of each material's ambient term. */
   float ambient_intensity{0.1F};
+  /**
+   * @brief Filtering for diffuse-map sampling. Linear (default) smooths,
+   *        Nearest keeps pixel-art textures crisp.
+   */
+  TextureFilter filter{TextureFilter::Linear};
+  /** @brief Distance fog (disabled by default; see FogSettings). */
+  FogSettings fog{};
 };
 
 /**
@@ -62,21 +99,11 @@ struct FragmentInput
 };
 
 /**
- * @brief Transform a world point to clip space via the camera.
- * @see obzcene::Camera::view_projection, used by the rasterizer vertex stage.
- */
-[[nodiscard]] inline auto world_to_clip(const CameraF& camera, const math::Vec3f& world)
-  -> math::Vec4f
-{
-  return camera.view_projection() * math::Vec4f{world.x, world.y, world.z, 1.0F};
-}
-
-/**
  * @brief Evaluate lighting + texturing for one fragment.
  *
  * The diffuse base colour is the material's `diffuse` (optionally modulated by
- * the diffuse map sampled with Linear filtering and Repeat wrap, v flipped to
- * match binary image rows). Lighting then accumulates `shade_all` plus the
+ * the diffuse map sampled with the frame's `filter` and Repeat wrap, v flipped
+ * to match binary image rows). Lighting then accumulates `shade_all` plus the
  * material's emissive, and the result is clamped/quantized by
  * Color::from_normalized.
  *
@@ -94,7 +121,7 @@ struct FragmentInput
     if (!tex.empty())
     {
       const auto sampled =
-        sample(tex, input.uv.x, 1.0F - input.uv.y, TextureFilter::Linear, TextureWrap::Repeat);
+        sample(tex, input.uv.x, 1.0F - input.uv.y, uniforms.filter, TextureWrap::Repeat);
       base = math::Vec3f{sampled.x * material.diffuse.x, sampled.y * material.diffuse.y,
                          sampled.z * material.diffuse.z};
     }
@@ -103,11 +130,20 @@ struct FragmentInput
   const auto view_dir     = has_specular
                               ? math::normalized(uniforms.camera.position() - input.world_position)
                               : math::Vec3f{};
+  // Ambient is modulated by the diffuse base (Ka x base x intensity) — a flat
+  // unmodulated ambient would wash every unlit face out to the same grey.
+  const auto ambient = base * (material.ambient * uniforms.ambient_intensity);
   auto shaded = shade_all(input.world_position, math::normalized(input.normal), view_dir, base,
-                          material.specular, material.shininess,
-                          material.ambient * uniforms.ambient_intensity, uniforms.lights);
+                          material.specular, material.shininess, ambient, uniforms.lights);
   shaded      = math::Vec3f{shaded.x + material.emissive.x, shaded.y + material.emissive.y,
                        shaded.z + material.emissive.z};
+  // Distance fog last: it covers everything, including emissive.
+  if (uniforms.fog.enabled())
+  {
+    const auto distance = math::length(uniforms.camera.position() - input.world_position);
+    const auto keep     = fog_visibility(uniforms.fog, distance);
+    shaded              = uniforms.fog.color * (1.0F - keep) + shaded * keep;
+  }
   return Color::from_normalized(shaded);
 }
 

@@ -9,8 +9,7 @@
  * (see obzcene::rasterize and #math::raster_detail::perspective_blend).
  * Aliases: #math::Vec4f, #math::Vec4d.
  *
- * @see Vec3 (world space), Mat4 (transform matrices acting on Vec4),
- *      obzcene::world_to_clip
+ * @see Vec3 (world space), Mat4 (transform matrices acting on Vec4)
  */
 
 #include "obzcene/Math/Common.hpp"

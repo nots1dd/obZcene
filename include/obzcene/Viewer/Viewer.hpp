@@ -103,6 +103,8 @@ private:
   auto set_message(std::string message) -> void;
   /** @brief Cycle the selected object (`selected + step`, wrapping). */
   auto cycle_selection(int step) -> void;
+  /** @brief The currently selected object, or nullptr. */
+  [[nodiscard]] auto selected_object() const -> ObjectHandle;
   /** @brief Save the scene (F5) to #m_scene_path. */
   auto save() -> void;
   /** @brief Reload the scene (F9) from #m_scene_path. */
@@ -122,7 +124,7 @@ private:
   math::Vec3f         m_reset_eye;
   math::Vec3f         m_reset_target;
   ViewerMode          m_mode{ViewerMode::Fly};
-  int                 m_selected{-1};
+  ObjectHandle        m_selected;
   float               m_move_speed{1.0F};
   float               m_frame_ms{0.0F};
   float               m_ambient_intensity{0.1F};

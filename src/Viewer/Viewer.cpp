@@ -67,16 +67,17 @@ auto Viewer::cycle_selection(int step) -> void
 {
   if (m_scene.objects.empty())
   {
-    m_selected = -1;
+    m_selected = nullptr;
     return;
   }
   const auto count = static_cast<int>(m_scene.objects.size());
-  auto       next  = m_selected + step;
+  auto       index = m_selected ? m_scene.index_of(m_selected) : std::nullopt;
+  auto       next  = index.has_value() ? static_cast<int>(*index) + step : 0;
   while (next < 0)
   {
     next += count;
   }
-  m_selected = next % count;
+  m_selected = m_scene.objects[static_cast<usz>(next % count)];
 }
 
 auto Viewer::save() -> void
@@ -108,7 +109,7 @@ auto Viewer::reload() -> void
   const auto scene_dir = std::filesystem::path{m_scene_path}.parent_path();
   apply_scene_file(m_scene, *data, scene_dir.empty() ? "." : scene_dir, m_no_textures);
   m_lights   = m_scene.lights;
-  m_selected = m_scene.objects.empty() ? -1 : 0;
+  m_selected = m_scene.objects.empty() ? nullptr : m_scene.objects.front();
   if (m_active_light >= m_lights.size())
   {
     m_active_light = 0;
@@ -120,6 +121,8 @@ auto Viewer::reload() -> void
   }
   set_message("loaded " + m_scene_path);
 }
+
+auto Viewer::selected_object() const -> ObjectHandle { return m_selected; }
 
 auto Viewer::add_object_from_browser(const std::filesystem::path& path) -> void
 {
@@ -133,12 +136,11 @@ auto Viewer::add_object_from_browser(const std::filesystem::path& path) -> void
   // then hand it to grab mode for placement.
   const auto radius =
     std::max(math::length(model->mesh.bounds.max - model->mesh.bounds.min) * 0.5F, 0.5F);
-  const auto spawn   = m_camera.position() + m_camera.forward() * (radius * 2.0F + 1.0F);
-  m_selected         = narrow_cast<int>(m_scene.add_object(std::move(model), spawn));
-  auto& object       = m_scene.objects[static_cast<usz>(m_selected)];
-  object.name        = path.filename().string();
-  object.source_path = path;
-  m_mode             = ViewerMode::Grab;
+  const auto spawn        = m_camera.position() + m_camera.forward() * (radius * 2.0F + 1.0F);
+  m_selected              = m_scene.add_object(std::move(model), spawn);
+  m_selected->name        = path.filename().string();
+  m_selected->source_path = path;
+  m_mode                  = ViewerMode::Grab;
   set_message("added " + path.filename().string());
 }
 
@@ -292,8 +294,7 @@ auto Viewer::handle_fly_input(float dt) -> void
   m_prev_tab = tab_down;
 
   const auto grab_down = m_window->key(SDL_SCANCODE_G);
-  if (grab_down && !m_prev_grab && m_selected >= 0 &&
-      static_cast<usz>(m_selected) < m_scene.objects.size())
+  if (grab_down && !m_prev_grab && m_selected != nullptr)
   {
     m_mode = ViewerMode::Grab;
     set_message("grab: arrows/Home/End move, PgUp/PgDn height, enter to confirm");
@@ -301,14 +302,11 @@ auto Viewer::handle_fly_input(float dt) -> void
   m_prev_grab = grab_down;
 
   const auto delete_down = m_window->key(SDL_SCANCODE_DELETE);
-  if (delete_down && !m_prev_delete && m_selected >= 0)
+  if (delete_down && !m_prev_delete && m_selected != nullptr)
   {
-    const auto name = m_scene.objects[static_cast<usz>(m_selected)].name;
-    m_scene.remove_object(static_cast<usz>(m_selected));
-    if (m_selected >= static_cast<int>(m_scene.objects.size()))
-    {
-      m_selected = static_cast<int>(m_scene.objects.size()) - 1;
-    }
+    const auto name = m_selected->name;
+    m_scene.remove_object(m_selected);
+    m_selected = m_scene.objects.empty() ? nullptr : m_scene.objects.back();
     set_message("removed " + name);
   }
   m_prev_delete = delete_down;
@@ -345,12 +343,13 @@ auto Viewer::handle_fly_input(float dt) -> void
 
 auto Viewer::handle_grab_input(float dt) -> void
 {
-  if (m_selected < 0 || static_cast<usz>(m_selected) >= m_scene.objects.size())
+  if (m_selected == nullptr || !m_scene.index_of(m_selected).has_value())
   {
-    m_mode = ViewerMode::Fly;
+    m_mode     = ViewerMode::Fly;
+    m_selected = nullptr;
     return;
   }
-  auto&      object = m_scene.objects[static_cast<usz>(m_selected)];
+  auto&      object = *m_selected;
   const auto speed  = dt * m_move_speed * kGrabMultiplier;
 
   const auto plane_forward = [&]()
@@ -385,19 +384,25 @@ auto Viewer::handle_grab_input(float dt) -> void
   }
   if (m_window->key(SDL_SCANCODE_PAGEUP))
   {
-    object.yaw += kRotateSpeed * dt;
+    object.rotation.y += kRotateSpeed * dt;
   }
   if (m_window->key(SDL_SCANCODE_PAGEDOWN))
   {
-    object.yaw -= kRotateSpeed * dt;
+    object.rotation.y -= kRotateSpeed * dt;
   }
+  const auto scale_by = [&](float delta)
+  {
+    const auto d  = math::Vec3f{delta, delta, delta};
+    const auto lo = math::Vec3f{0.05F, 0.05F, 0.05F};
+    object.scale  = math::max(object.scale + d, lo);
+  };
   if (m_window->key(SDL_SCANCODE_EQUALS))
   {
-    object.scale += kScaleSpeed * dt;
+    scale_by(kScaleSpeed * dt);
   }
   if (m_window->key(SDL_SCANCODE_MINUS))
   {
-    object.scale = std::max(0.05F, object.scale - kScaleSpeed * dt);
+    scale_by(-kScaleSpeed * dt);
   }
 
   // Enter confirms; Escape cancels (restores the saved transform).
@@ -471,7 +476,7 @@ auto Viewer::run(Scene scene, const std::string& scene_path, bool no_textures) -
   m_scene_path  = scene_path;
   m_no_textures = no_textures;
   m_lights      = m_scene.lights;
-  m_selected    = m_scene.objects.empty() ? -1 : 0;
+  m_selected    = m_scene.objects.empty() ? nullptr : m_scene.objects.front();
 
   // Pick the first movable (non-directional) light.
   if (!m_lights.empty() && m_lights[m_active_light].type == LightType::Directional)
@@ -533,31 +538,13 @@ auto Viewer::run(Scene scene, const std::string& scene_path, bool no_textures) -
     }
 
     clear_frame(m_framebuffer);
-    auto render_stats = RenderStats{};
-    for (const auto& object : m_scene.objects)
-    {
-      if (object.model == nullptr)
-      {
-        continue;
-      }
-      const auto bounds    = object.transformed_bounds(object.model->mesh.bounds);
-      const auto transform = ModelTransform{object.model_matrix(), object.normal_matrix()};
-      const auto uniforms =
-        FragmentUniforms{m_camera, m_resolved_lights, object.model->textures, m_ambient_intensity};
-      const auto sub =
-        render_object(m_framebuffer, object.model->mesh, uniforms, m_wireframe, transform, &bounds);
-      render_stats.triangles_processed += sub.triangles_processed;
-      render_stats.triangles_culled_backface += sub.triangles_culled_backface;
-      render_stats.triangles_culled_viewport += sub.triangles_culled_viewport;
-      render_stats.triangles_culled_nearfar += sub.triangles_culled_nearfar;
-      render_stats.triangles_degenerate += sub.triangles_degenerate;
-      render_stats.triangles_rendered += sub.triangles_rendered;
-      render_stats.pixels_shaded += sub.pixels_shaded;
-      render_stats.pixels_written += sub.pixels_written;
-    }
+    const auto render_stats = render_scene(m_framebuffer, m_scene, m_camera, m_resolved_lights,
+                                           m_ambient_intensity, m_wireframe);
 
     if (m_show_stats)
     {
+      const auto selected_index =
+        m_selected != nullptr ? static_cast<int>(m_scene.index_of(m_selected).value_or(0)) : -1;
       const auto hud = overlay::HudInput{&m_scene,
                                          &render_stats,
                                          &m_resolved_lights,
@@ -567,7 +554,7 @@ auto Viewer::run(Scene scene, const std::string& scene_path, bool no_textures) -
                                          m_wireframe,
                                          m_active_light,
                                          m_headlamp,
-                                         m_selected,
+                                         selected_index,
                                          m_mode == ViewerMode::Fly    ? "fly"
                                          : m_mode == ViewerMode::Grab ? "grab"
                                                                       : "browse",

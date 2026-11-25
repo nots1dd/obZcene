@@ -11,6 +11,9 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 find_package(Threads REQUIRED)
+find_package(SDL2 CONFIG REQUIRED)
+find_package(SDL2_image CONFIG REQUIRED)
+find_package(OpenGL REQUIRED)
 
 set(BACKTRACE_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/external/libbacktrace/build/install")
 
@@ -22,35 +25,58 @@ set_target_properties(obzcene_backtrace PROPERTIES
 add_subdirectory(external/spdlog)
 add_subdirectory(external/CLI11)
 
-add_executable(obZcene
-  src/App/App.cpp
-  src/App/Scene.cpp
+# ============================================================
+# Engine library — everything a game or tool links against.
+# ============================================================
+
+add_library(obzcene STATIC
   src/Core/Logger.cpp
+  src/Renderer/GpuRenderer.cpp
   src/Renderer/Window.cpp
   src/Texture/ImageWriter.cpp
   src/Texture/TextureLoader.cpp
   src/Viewer/Overlay.cpp
   src/Viewer/Scene.cpp
   src/Viewer/Viewer.cpp
-  src/obZcene.cpp
+  src/Engine/Assets.cpp
+  src/Engine/Audio.cpp
+  src/Engine/Engine.cpp
 )
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(SDL2_image CONFIG REQUIRED)
-
-target_include_directories(obZcene PRIVATE
-  include
+target_include_directories(obzcene PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+target_include_directories(obzcene PRIVATE
   "${BACKTRACE_PREFIX}/include"
 )
 
-target_link_libraries(obZcene PRIVATE
+target_link_libraries(obzcene PUBLIC
   obzcene_backtrace
   spdlog::spdlog
   Threads::Threads
   SDL2::SDL2
   SDL2_image::SDL2_image
+  OpenGL::GL
+)
+
+# ============================================================
+# Editor / viewer executable (CLI front-end over the library).
+# ============================================================
+
+add_executable(obZcene
+  src/App/App.cpp
+  src/App/Scene.cpp
+  src/obZcene.cpp
+)
+
+target_link_libraries(obZcene PRIVATE
+  obzcene
   CLI11::CLI11
 )
+
+# ============================================================
+# Tests
+# ============================================================
 
 enable_testing()
 
@@ -76,16 +102,11 @@ add_executable(parser-tests
   tests/test_logger.cpp
   tests/test_mtl_parser.cpp
   tests/test_obj_parser.cpp
-  src/Core/Logger.cpp
-)
-
-target_include_directories(parser-tests PRIVATE
-  include
 )
 
 target_link_libraries(parser-tests PRIVATE
   Catch2::Catch2WithMain
-  spdlog::spdlog
+  obzcene
 )
 
 target_compile_definitions(parser-tests PRIVATE
@@ -123,17 +144,11 @@ add_test(NAME light-tests COMMAND light-tests)
 
 add_executable(renderer-tests
   tests/test_renderer.cpp
-  src/Core/Logger.cpp
-)
-
-target_include_directories(renderer-tests PRIVATE
-  include
 )
 
 target_link_libraries(renderer-tests PRIVATE
   Catch2::Catch2WithMain
-  spdlog::spdlog
-  Threads::Threads
+  obzcene
 )
 
 add_test(NAME renderer-tests COMMAND renderer-tests)
@@ -145,60 +160,62 @@ add_executable(culling-tests
   tests/test_culling.cpp
 )
 
-target_include_directories(culling-tests PRIVATE
-  include
-)
-
 target_link_libraries(culling-tests PRIVATE
   Catch2::Catch2WithMain
-  spdlog::spdlog
-  Threads::Threads
+  obzcene
 )
 
 add_test(NAME culling-tests COMMAND culling-tests)
 
 add_executable(overlay-tests
   tests/test_overlay.cpp
-  src/Viewer/Overlay.cpp
-  src/Viewer/Scene.cpp
-  src/Texture/TextureLoader.cpp
-  src/Core/Logger.cpp
-)
-
-target_include_directories(overlay-tests PRIVATE
-  include
 )
 
 target_link_libraries(overlay-tests PRIVATE
   Catch2::Catch2WithMain
-  spdlog::spdlog
-  Threads::Threads
-  SDL2::SDL2
-  SDL2_image::SDL2_image
+  obzcene
 )
 
 add_test(NAME overlay-tests COMMAND overlay-tests)
 
 add_executable(scene-tests
   tests/test_scene.cpp
-  src/Viewer/Scene.cpp
-  src/Texture/TextureLoader.cpp
-  src/Core/Logger.cpp
-)
-
-target_include_directories(scene-tests PRIVATE
-  include
 )
 
 target_link_libraries(scene-tests PRIVATE
   Catch2::Catch2WithMain
-  spdlog::spdlog
-  Threads::Threads
-  SDL2::SDL2
-  SDL2_image::SDL2_image
+  obzcene
 )
 
 add_test(NAME scene-tests COMMAND scene-tests)
 set_tests_properties(scene-tests PROPERTIES
   ENVIRONMENT "ASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)
+
+add_executable(engine-tests
+  tests/test_engine.cpp
+  tests/test_input.cpp
+  tests/test_audio.cpp
+)
+
+target_link_libraries(engine-tests PRIVATE
+  Catch2::Catch2WithMain
+  obzcene
+)
+
+add_test(NAME engine-tests COMMAND engine-tests)
+set_tests_properties(engine-tests PROPERTIES
+  ENVIRONMENT "ASSETS_DIR=${CMAKE_CURRENT_SOURCE_DIR}/assets"
+)
+
+# ============================================================
+# Examples — small games written against the public API.
+# ============================================================
+
+add_executable(sandbox-example
+  examples/sandbox.cpp
+)
+
+target_link_libraries(sandbox-example PRIVATE
+  obzcene
 )

@@ -62,7 +62,16 @@ scene file loads first, the positional model is added on top.
 
 # Custom spot light, no default rig
 ./build/obZcene model.obj --light-pos 0 5 5 --light-dir 0 -1 -0.5 --light-intensity 2
+
+# The sandbox game example (Minecraft-style terrain, viewmodel gun, click to shoot)
+./build/sandbox-example
+OBZCENE_GPU=1 ./build/sandbox-example   # same game on the OpenGL backend
 ```
+
+Sandbox controls: WASD move, **Space** jump, Q/E or PgUp/PgDn fly up/down,
+mouse look, `[`/`]` to lower/raise mouse sensitivity, **Left Click** to break
+the aimed block, **Right Click** to place a block against the aimed face,
+Escape to quit.
 
 ## Viewer controls
 

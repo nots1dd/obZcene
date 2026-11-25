@@ -2,25 +2,58 @@
 
 ## Overview
 
-obZcene is a single executable. `src/obZcene.cpp` is a two-line `main` that
-forwards to `obzcene::app::entry()` (`src/App/App.cpp`). Everything else hangs
-off the modules below. Most of the engine is header-only; only the SDL-facing
-code, logging, image writing, and the viewer/overlay live in `.cpp` files.
+obZcene is built as a static library (`libobzcene`) plus thin front-ends. The
+library contains the renderer, the scene model, and the game-facing Engine;
+the `obZcene` executable is the editor/viewer CLI built on it.
 
 ```
-obZcene.cpp (main)
+games / editor executable
    │
    ▼
-App ──► File parsers (OBJ/MTL) ──► Mesh builder ──► Texture loader
-   │                                                        │
-   ▼                                                        ▼
-Scene assembly (camera framing, lights)            Renderer (rasterizer + shader)
-   │                                                        │
-   ├─ interactive mode ─► Viewer (SDL window, input, overlay HUD)
-   └─ snapshot mode ────► one frame ─► ImageWriter (PPM)
+Engine (game loop: input/update/render, assets, audio)
+   │
+   ▼
+Scene model (objects with transforms, lights, model cache)
+   │
+   ▼
+Renderer (rasterizer + shader) ──► Math library
 ```
 
+The App layer wires CLI args into the viewer; the Engine layer wires a Game's
+callbacks into the same rendering core.
+
+```
+games link libobzcene ──► Engine (loop, Input, Assets, Audio) ──► Scene
+                                                                         │
+obZcene.cpp (main) ──► App (CLI) ──► Viewer (editor)                     ▼
+   │                                            Renderer (rasterizer + shader)
+   ▼                                                        ▲
+File parsers (OBJ/MTL) ──► Mesh builder ──► Texture loader ─┘
+```
+
+Most of the engine is header-only; only the SDL-facing code, logging, image
+writing, and the viewer/engine overlays live in `.cpp` files.
+
 ## Module responsibilities
+
+### Engine (`include/obzcene/Engine`, `src/Engine`)
+
+The game-facing facade, the library's top layer:
+
+- `Engine` — owns the window, framebuffer, scene, camera, input, assets and
+  audio; runs the frame loop (pump input → fly-camera → `game.on_update` →
+  render → `game.on_render` → present). `EngineConfig` selects the renderer
+  backend (CPU rasterizer or OpenGL 3.3), fly camera, HUD, wireframe,
+  headlamp, asset root and an optional scene file.
+- `Game` — the user's hook: `on_init` / `on_update(dt)` / `on_render` /
+  `on_shutdown`, all optional overrides.
+- `Input` — per-frame polled snapshot with `down`/`pressed`/`released` edge
+  detection and mouse delta; engine `Key` enum keeps SDL out of game code.
+- `Assets` — name→path registry over one or more root directories, caching
+  models and audio clips by resolved path (shared via `shared_ptr`).
+- `Audio` — software mixer over an SDL audio device: clips decode to float32
+  stereo 48 kHz, voices mix in the audio callback, offline mode is a safe
+  no-op (headless CI).
 
 ### App (`include/obzcene/App`, `src/App`)
 
@@ -112,10 +145,14 @@ The heart of the engine.
      straddling the near/far planes are deferred to a short serial clip pass
      (Sutherland-Hodgman in clip space, fan-triangulated) instead of being
      dropped, so nothing pops out at the near plane.
-  2. **Scan conversion** — each worker owns a horizontal band of pixel rows
-     and rasterizes only the jobs binned into it (disjoint rows → no
-     colour/depth races; triangle order preserved → results identical to a
-     single-band run). The inner loop uses edge-function barycentrics
+  2. **Scan conversion** — workers pull horizontal bands of pixel rows from
+     an atomic counter (there are `kBandsPerWorker`× more bands than
+     workers, so a worker that finishes a cheap band steals the next one;
+     disjoint rows → no colour/depth races; triangle order preserved →
+     results identical to a single-band run). Meshes smaller than
+     `kMinParallelTriangles` skip the fan-out entirely and rasterize inline
+     — thread spawn costs more than the draw at that size. The inner loop
+     uses edge-function barycentrics
      4 pixels at a time via `math::Pack4f` (Math/Pack4.hpp — SSE2 backend
      when available, scalar otherwise; thread fan-out itself lives in
      `threading::parallel_run`, Core/Threading.hpp). Covered pixels
@@ -125,11 +162,21 @@ The heart of the engine.
      the HUD. `rasterize_wireframe()` is a separate Bresenham outline path.
   Above it, `render_frame()` clears the target, applies whole-mesh frustum
   culling against `Mesh::bounds`, and dispatches wireframe/solid.
+  `render_scene()` additionally draws objects nearest-first so the depth
+  test rejects occluded fragments before shading (less overdraw).
+  `Batch.hpp` offers static batching (`bake_instances` / `append_mesh`) to
+  merge many small objects into one mesh — the fix for scenes where
+  per-object setup dominates (voxel terrain, scattered props).
 - `Shader.hpp` — the software equivalent of a fragment shader.
   `shade_fragment()` samples the material's diffuse texture (bilinear, repeat,
   v flipped), then accumulates lighting with `shade_all()` and adds the
-  emissive term. `FragmentUniforms` bundles the frame-wide state (camera,
-  resolved lights, texture table, ambient scale).
+  emissive term. Linear distance fog (`FogSettings`, off by default) blends
+  the result towards the fog colour; the GPU backend implements the same
+  model in GLSL. `FragmentUniforms` bundles the frame-wide state (camera,
+  resolved lights, texture table, ambient scale, filter, fog).
+- `Draw2D.hpp` — immediate-mode 2D primitives (pixel/rect/square/disc/line,
+  optional src-over blending and infinite-depth sky gating) for HUDs and sky
+  sprites, drawn into the framebuffer via `Game::on_render`.
 - `Light.hpp` — light types (directional/point/spot), factories, and the
   lighting math: Lambert diffuse, Blinn-Phong specular (with a fast integer
   power path for integral shininess), quadratic distance attenuation, and spot
@@ -138,9 +185,21 @@ The heart of the engine.
 - `FrameBuffer.hpp` — row-major colour (`Color` = 8-bit RGBA) + `float` depth
   buffers, flat-indexed accessors for the rasterizer fast path.
 - `Window.hpp/.cpp` — SDL2 facade. Owns the window/renderer and a streaming
-  texture; `present()` uploads the framebuffer. Also pumps events, tracks key
-  state, and accumulates relative mouse deltas. Not used in snapshot mode.
+  texture; `present()` uploads the framebuffer. In GPU mode it instead owns
+  an OpenGL 3.3 core context (`swap_buffers()` presents). Also pumps events,
+  tracks key state, and accumulates relative mouse deltas. Not used in
+  snapshot mode.
+- `GpuRenderer.hpp` / `src/Renderer/GpuRenderer.cpp` — the GPU backend
+  (`EngineConfig::backend == RendererBackend::Gpu`). Draws the scene via
+  OpenGL 3.3 with a shader mirroring the CPU lighting model, caches uploaded
+  meshes by Model pointer (weak_ptr liveness guard) and textures by content
+  hash, then composites the CPU framebuffer (game overlays + HUD) as an
+  alpha-blended fullscreen quad. The Engine falls back to failing fast with
+  a logged reason when no GL context is available.
 - `RenderStats.hpp` — plain counter struct returned by `rasterize()`.
+  `clear_frame_gradient()` (Rasterizer.hpp) clears to a vertical sky gradient;
+  the GPU backend draws the same gradient as a fullscreen quad behind the
+  scene.
 
 ### Texture (`include/obzcene/Texture`, `src/Texture`)
 
@@ -164,6 +223,10 @@ The heart of the engine.
   transform. `model_matrix()` = translate · rotate_y · scale, applied
   per-vertex by the rasterizer (see ModelTransform in Rasterizer.hpp);
   `transformed_bounds()` maps the mesh AABB to world space.
+- `Picking.hpp` — scene raycasting against those same transform-aware
+  bounds: `raycast()` (nearest hit with entry-face axis) and `raycast_all()`
+  (sorted broad-phase with a filter predicate), used for mouse picking,
+  hitscan weapons and block placement.
 - `SceneFile.hpp` — header-only `.obzscene` persistence: a line-oriented
   text format (`object` / `light` / `camera`) parsed with `std::from_chars`;
   malformed lines are skipped with a warning. `apply_scene_file` /
@@ -210,8 +273,9 @@ environment variable name.
      `RasterJob`s binned per framebuffer band. Straddlers are clipped in clip
      space rather than dropped, and counted in `RenderStats`.
    - **Rasterization** — scanline fill with incremental barycentric weights,
-     parallel over horizontal bands; SSE2 4-wide coverage/depth evaluation
-     when available.
+     bands pulled dynamically from an atomic counter (4× bands per worker,
+     so cheap screen regions don't strand idle workers); SSE2 4-wide
+     coverage/depth evaluation when available.
    - **Fragment stage** — perspective-correct attributes → depth test →
      `shade_fragment()` (texture × diffuse, then all lights, plus emissive) →
      8-bit colour write.
@@ -239,8 +303,9 @@ Snapshot mode runs steps 3–4 once per object and writes the result with
   `ObjData`.
 - **Parallelism without races.** The rasterizer splits work along two
   disjoint axes — vertex/triangle chunks in the setup phase and horizontal
-  row bands in scan conversion — so no two threads write the same vertex or
-  pixel, and per-frame output is identical to a single-threaded run.
-  Triangles straddling the near/far clip planes are clipped
-  (Sutherland-Hodgman) rather than culled, in a short serial pass after the
-  parallel classification.
+  row bands in scan conversion (assigned dynamically via an atomic counter;
+  band→rows is fixed, so determinism holds) — so no two threads write the
+  same vertex or pixel, and per-frame output is identical to a
+  single-threaded run. Triangles straddling the near/far clip planes are
+  clipped (Sutherland-Hodgman) rather than culled, in a short serial pass
+  after the parallel classification.

@@ -16,9 +16,12 @@
 #include "obzcene/Core/Casts.hpp"
 #include "obzcene/Core/Logger.hpp"
 #include "obzcene/File/Obj/Parser/ObjParser.hpp"
+#include "obzcene/Renderer/Rasterizer.hpp"
+#include "obzcene/Renderer/Shader.hpp"
 #include "obzcene/Texture/TextureLoader.hpp"
 #include "obzcene/Viewer/SceneFile.hpp"
 
+#include <algorithm>
 #include <utility>
 
 namespace obzcene
@@ -60,16 +63,26 @@ auto Scene::load_model(const std::filesystem::path& path, bool no_textures)
   return model;
 }
 
-auto Scene::add_object(std::shared_ptr<const Model> model, const math::Vec3f& position) -> usz
+auto Scene::add_object(std::shared_ptr<const Model> model, const math::Vec3f& position)
+  -> ObjectHandle
 {
-  auto object     = SceneObject{};
-  object.model    = std::move(model);
-  object.position = position;
+  auto object      = std::make_shared<SceneObject>();
+  object->model    = std::move(model);
+  object->position = position;
   objects.push_back(std::move(object));
-  return objects.size() - 1;
+  return objects.back();
 }
 
-auto Scene::remove_object(usz index) -> void
+auto Scene::remove_object(const ObjectHandle& handle) -> void
+{
+  const auto it = std::find(objects.begin(), objects.end(), handle);
+  if (it != objects.end())
+  {
+    objects.erase(it);
+  }
+}
+
+auto Scene::remove_object_at(usz index) -> void
 {
   if (index < objects.size())
   {
@@ -77,16 +90,26 @@ auto Scene::remove_object(usz index) -> void
   }
 }
 
+auto Scene::index_of(const ObjectHandle& handle) const -> std::optional<usz>
+{
+  const auto it = std::find(objects.begin(), objects.end(), handle);
+  if (it == objects.end())
+  {
+    return std::nullopt;
+  }
+  return static_cast<usz>(std::distance(objects.begin(), it));
+}
+
 auto Scene::world_bounds() const -> math::AABBf
 {
   auto bounds = math::AABBf::empty();
   for (const auto& object : objects)
   {
-    if (object.model == nullptr)
+    if (object == nullptr || object->model == nullptr)
     {
       continue;
     }
-    const auto box = object.transformed_bounds(object.model->mesh.bounds);
+    const auto box = object->transformed_bounds(object->model->mesh.bounds);
     if (box.min.x <= box.max.x)
     {
       bounds.expand(box.min);
@@ -101,12 +124,54 @@ auto Scene::instance_count(const std::shared_ptr<const Model>& model) const -> u
   auto count = usz{0};
   for (const auto& object : objects)
   {
-    if (object.model == model)
+    if (object != nullptr && object->model == model)
     {
       ++count;
     }
   }
   return count;
+}
+
+auto render_scene(FrameBuffer& fb, const Scene& scene, const CameraF& camera,
+                  const std::vector<LightF>& lights, float ambient, bool wireframe,
+                  TextureFilter filter, FogSettings fog) -> RenderStats
+{
+  // Draw nearest-first: the depth test then rejects occluded fragments before
+  // shading them, which slashes overdraw in dense scenes (voxel terrain etc.).
+  // Depth testing makes the final image order-independent, so this is a pure
+  // performance transform.
+  const auto         eye = camera.position();
+  std::vector<float> distance_sq(scene.objects.size(), 0.0F);
+  std::vector<usz>   order(scene.objects.size());
+  for (usz i = 0; i < order.size(); ++i)
+  {
+    const auto& object = scene.objects[i];
+    if (object != nullptr && object->model != nullptr)
+    {
+      const auto center = object->transformed_bounds(object->model->mesh.bounds).center();
+      distance_sq[i]    = (center - eye).length_sq();
+    }
+    order[i] = i;
+  }
+  std::sort(order.begin(), order.end(),
+            [&](usz lhs, usz rhs) { return distance_sq[lhs] < distance_sq[rhs]; });
+
+  auto stats = RenderStats{};
+  for (const auto index : order)
+  {
+    const auto& object = scene.objects[index];
+    if (object == nullptr || object->model == nullptr)
+    {
+      continue;
+    }
+    const auto bounds    = object->transformed_bounds(object->model->mesh.bounds);
+    const auto transform = ModelTransform{object->model_matrix(), object->normal_matrix()};
+    const auto uniforms =
+      FragmentUniforms{camera, lights, object->model->textures, ambient, filter, fog};
+    merge_stats(stats,
+                render_object(fb, object->model->mesh, uniforms, wireframe, transform, &bounds));
+  }
+  return stats;
 }
 
 auto apply_scene_file(Scene& scene, const SceneFileData& data,
@@ -124,12 +189,11 @@ auto apply_scene_file(Scene& scene, const SceneFileData& data,
       LOG_WARN("Scene file entry '{}' failed to load; skipped", resolved.string());
       continue;
     }
-    const auto index   = scene.add_object(std::move(model), entry.position);
-    auto&      object  = scene.objects[index];
-    object.yaw         = entry.yaw;
-    object.scale       = entry.scale;
-    object.source_path = entry.model_path;
-    object.name        = entry.model_path.filename().string();
+    auto object         = scene.add_object(std::move(model), entry.position);
+    object->rotation    = entry.rotation;
+    object->scale       = entry.scale;
+    object->source_path = entry.model_path;
+    object->name        = entry.model_path.filename().string();
   }
   LOG_INFO("Scene file applied: {} object(s), {} light(s)", scene.objects.size(),
            scene.lights.size());

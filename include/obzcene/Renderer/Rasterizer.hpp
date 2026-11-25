@@ -17,12 +17,19 @@
  * clip space, fan-triangulated), so geometry crossing the near plane no
  * longer pops out.
  *
- * Phase 2: each worker owns a horizontal band of pixel rows and
- * scan-converts only the jobs binned into it. Bands partition rows
- * disjointly, so colour/depth writes never race; jobs are visited in
- * triangle order within a band, so results are identical to a single-band
- * run. The inner loop evaluates coverage and depth four pixels at a time
- * through math::Pack4f and shades only pixels passing the depth test.
+ * Phase 2: workers grab horizontal bands of pixel rows from an atomic
+ * counter (there are #kBandsPerWorker times more bands than workers, so a
+ * worker that drew an empty sky band immediately picks up useful work).
+ * Bands partition rows disjointly, so colour/depth writes never race; jobs
+ * are visited in triangle order within a band, so results are identical to a
+ * single-band run. The inner loop evaluates coverage and depth four pixels
+ * at a time through math::Pack4f and shades only pixels passing the depth
+ * test.
+ *
+ * Meshes smaller than #kMinParallelTriangles skip the worker fan-out
+ * entirely and rasterize inline: below that size the thread spawn and
+ * barrier cost more than the draw itself (this is what keeps scenes with
+ * thousands of tiny objects affordable).
  *
  * The `raster_detail` helpers (RasterVertex / perspective_blend) mirror the
  * classic perspective-correct barycentric approach and are exercised directly
@@ -54,6 +61,7 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <barrier>
 #include <cmath>
 #include <cstdint>
@@ -76,6 +84,16 @@ struct RasterOptions
 inline constexpr Color kClearColor{22, 22, 28};
 /** @brief Default wireframe line colour shared by the viewer and snapshot paths. */
 inline constexpr Color kWireframeColor{220, 220, 230};
+/**
+ * @brief Meshes with fewer triangles than this rasterize single-threaded:
+ *        below it, worker fan-out costs more than the draw itself.
+ */
+inline constexpr usz kMinParallelTriangles{128};
+/**
+ * @brief Phase-2 bands per worker. More bands than workers lets idle workers
+ *        steal remaining bands (screen regions differ hugely in cost).
+ */
+inline constexpr int kBandsPerWorker{4};
 
 /**
  * @brief Model-space -> world-space transform for one rendered object.
@@ -644,13 +662,24 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
   const auto near_clip = uniforms.camera.near_clip();
   const auto far_clip  = uniforms.camera.far_clip();
 
-  auto band_count = static_cast<int>(options.thread_count);
-  if (band_count <= 0)
+  auto worker_count = static_cast<int>(options.thread_count);
+  if (worker_count <= 0)
   {
     const auto hw = std::thread::hardware_concurrency();
-    band_count    = static_cast<int>(hw == 0 ? 1u : hw);
+    worker_count  = static_cast<int>(hw == 0 ? 1u : hw);
   }
-  band_count               = std::clamp(band_count, 1, std::max(1, fb_height / 32));
+  worker_count = std::clamp(worker_count, 1, std::max(1, fb_height / 32));
+  // Tiny meshes: the worker spawn/barrier costs more than the whole draw, so
+  // run them inline on the calling thread (results are worker-count agnostic).
+  // An explicit RasterOptions::thread_count always wins over this heuristic.
+  if (options.thread_count == 0 && mesh.triangles.size() < kMinParallelTriangles)
+  {
+    worker_count = 1;
+  }
+  // Finer bands than workers: phase 2 hands them out dynamically, so workers
+  // that finish cheap bands (e.g. sky) steal work from expensive ones.
+  const auto band_count =
+    std::clamp(worker_count * kBandsPerWorker, 1, std::max(1, fb_height / 16));
   const auto rows_per_band = (fb_height + band_count - 1) / band_count;
 
   thread_local raster_detail::PoolStorage pool_store;
@@ -660,9 +689,9 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
   auto pool_size = mesh.vertices.size();
 
   thread_local std::vector<SetupChunk> chunks;
-  if (chunks.size() != static_cast<usz>(band_count))
+  if (chunks.size() != static_cast<usz>(worker_count))
   {
-    chunks.assign(static_cast<usz>(band_count), SetupChunk{});
+    chunks.assign(static_cast<usz>(worker_count), SetupChunk{});
   }
   for (auto& chunk : chunks)
   {
@@ -684,9 +713,9 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
 
   // -- phase 1: transform (per vertex chunk), barrier, cull+clip-bin (per
   //    triangle chunk) — one spawn round for both ----------------------------
-  std::barrier sync(band_count);
+  std::barrier sync(static_cast<std::ptrdiff_t>(worker_count));
   threading::parallel_run(
-    band_count,
+    worker_count,
     [&](int worker, int workers)
     {
       const auto vertex_begin =
@@ -709,7 +738,7 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
       sync.arrive_and_wait();
 
       auto& chunk = chunks_data[worker];
-      chunk.bins.resize(static_cast<usz>(workers));
+      chunk.bins.resize(static_cast<usz>(band_count));
       const auto tri_begin =
         mesh_ptr->triangles.size() * static_cast<usz>(worker) / static_cast<usz>(workers);
       const auto tri_end =
@@ -759,7 +788,7 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
         job.b              = tri.b;
         job.c              = tri.c;
         job.material_index = tri.material_index;
-        raster_detail::emit_job(chunk, job, workers, rows_per_band);
+        raster_detail::emit_job(chunk, job, band_count, rows_per_band);
       }
     });
 
@@ -877,7 +906,7 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
     }
   }
 
-  // -- phase 2: bands scan-convert only the jobs binned into them ------------
+  // -- phase 2: workers grab bands dynamically until none are left ----------
   const auto* bins_src = chunks.data();
 
   struct alignas(64) BandStats
@@ -885,22 +914,31 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
     RenderStats stats{};
   };
   std::vector<BandStats> band_stats(static_cast<usz>(band_count));
-  threading::parallel_run(band_count,
-                          [&](int band, int workers)
+  std::atomic<int>       next_band{0};
+  threading::parallel_run(worker_count,
+                          [&](int, int workers)
                           {
-                            const auto y_begin = band * rows_per_band;
-                            const auto y_end   = std::min(fb_height, y_begin + rows_per_band);
-                            auto       local   = RenderStats{};
-                            for (auto worker = 0; worker < workers; ++worker)
+                            while (true)
                             {
-                              const auto& chunk = bins_src[worker];
-                              const auto  sub   = raster_detail::rasterize_band(
-                                pool, chunk.jobs, chunk.bins[static_cast<usz>(band)], mesh,
-                                uniforms, fb, y_begin, y_end);
-                              local.pixels_shaded += sub.pixels_shaded;
-                              local.pixels_written += sub.pixels_written;
+                              const auto band = next_band.fetch_add(1, std::memory_order_relaxed);
+                              if (band >= band_count)
+                              {
+                                break;
+                              }
+                              const auto y_begin = band * rows_per_band;
+                              const auto y_end   = std::min(fb_height, y_begin + rows_per_band);
+                              auto       local   = RenderStats{};
+                              for (auto worker = 0; worker < workers; ++worker)
+                              {
+                                const auto& chunk = bins_src[worker];
+                                const auto  sub   = raster_detail::rasterize_band(
+                                  pool, chunk.jobs, chunk.bins[static_cast<usz>(band)], mesh,
+                                  uniforms, fb, y_begin, y_end);
+                                local.pixels_shaded += sub.pixels_shaded;
+                                local.pixels_written += sub.pixels_written;
+                              }
+                              band_stats[static_cast<usz>(band)].stats = local;
                             }
-                            band_stats[static_cast<usz>(band)].stats = local;
                           });
 
   for (const auto& band : band_stats)
@@ -912,22 +950,14 @@ inline auto rasterize(const Mesh& mesh, const FragmentUniforms& uniforms, FrameB
 }
 
 /**
- * @brief Clear `fb` and render one frame of `mesh` into it.
- * @param fb         Target framebuffer (cleared first).
- * @param mesh       Geometry to draw.
- * @param uniforms   Camera/lights/textures for shading (lights already resolved).
- * @param wireframe  Draw outlines instead of shaded triangles.
- * @return Rasterizer statistics (empty when the mesh misses the view frustum,
- *         default-constructed beyond the clear for wireframe frames).
- * @note Shared by the interactive viewer and the snapshot path so both agree
- *       on clear colour, wireframe colour and culling options. The whole mesh
- *       is skipped cheaply when its (valid) bounds miss the camera frustum.
- */
-/**
  * @brief Render one object into `fb` WITHOUT clearing (frustum-culled).
  * @param cull_bounds  World-space bounds for the whole-mesh frustum test;
  *                     defaults to `mesh.bounds` (identity model).
- * @see render_frame (single-object wrapper that clears first).
+ * @note Shared by the interactive viewer and the snapshot path so both agree
+ *       on clear colour, wireframe colour and culling options. The whole mesh
+ *       is skipped cheaply when its (valid) bounds miss the camera frustum.
+ *       For multi-object scenes, clear once with clear_frame() and call this
+ *       per object (obzcene::render_scene does exactly that).
  */
 inline auto render_object(FrameBuffer& fb, const Mesh& mesh, const FragmentUniforms& uniforms,
                           bool wireframe, const ModelTransform& model = {},
@@ -947,34 +977,49 @@ inline auto render_object(FrameBuffer& fb, const Mesh& mesh, const FragmentUnifo
 }
 
 /**
- * @brief Clear `fb` and render one frame of `mesh` into it.
- * @param fb         Target framebuffer (cleared first).
- * @param mesh       Geometry to draw.
- * @param uniforms   Camera/lights/textures for shading (lights already resolved).
- * @param wireframe  Draw outlines instead of shaded triangles.
- * @param model      Model transform (identity = mesh space is world space).
- * @param cull_bounds  Optional world-space cull bounds (default: mesh.bounds).
- * @return Rasterizer statistics (empty when the mesh misses the view frustum,
- *         default-constructed beyond the clear for wireframe frames).
- * @note Shared by the interactive viewer and the snapshot path so both agree
- *       on clear colour, wireframe colour and culling options. For
- *       multi-object scenes, clear once with clear_frame() and call
- *       render_object() per object instead.
- */
-inline auto render_frame(FrameBuffer& fb, const Mesh& mesh, const FragmentUniforms& uniforms,
-                         bool wireframe, const ModelTransform& model = {},
-                         const math::AABBf* cull_bounds = nullptr) -> RenderStats
+ * @brief Clear colour/depth only; pair with render_object() for multi-object frames. */
+inline auto clear_frame(FrameBuffer& fb, const Color& color) -> void
 {
-  fb.clear(kClearColor);
+  fb.clear(color);
   fb.clear_depth();
-  return render_object(fb, mesh, uniforms, wireframe, model, cull_bounds);
 }
 
-/** @brief Clear colour/depth only; pair with render_object() for multi-object frames. */
-inline auto clear_frame(FrameBuffer& fb) -> void
+/** @brief Clear colour/depth to the default background colour. */
+inline auto clear_frame(FrameBuffer& fb) -> void { clear_frame(fb, kClearColor); }
+
+/**
+ * @brief Clear to a vertical sky gradient: `top` at row 0, `bottom` at the
+ *        last row (per-row fill, cheap). Depth is cleared as usual.
+ */
+inline auto clear_frame_gradient(FrameBuffer& fb, const Color& top, const Color& bottom) -> void
 {
-  fb.clear(kClearColor);
+  const auto height = fb.height();
+  const auto lerp   = [](float t, ui8 a, ui8 b)
+  { return static_cast<ui8>(static_cast<float>(a) * (1.0F - t) + static_cast<float>(b) * t); };
+  for (auto y = 0; y < height; ++y)
+  {
+    const auto t = height > 1 ? static_cast<float>(y) / static_cast<float>(height - 1) : 0.0F;
+    const auto color =
+      Color{lerp(t, top.r, bottom.r), lerp(t, top.g, bottom.g), lerp(t, top.b, bottom.b), 255};
+    for (auto x = 0; x < fb.width(); ++x)
+    {
+      fb.at(x, y) = color;
+    }
+  }
   fb.clear_depth();
+}
+
+/** @brief Merge `sub` into `total` (counter-wise accumulation). */
+inline auto merge_stats(RenderStats& total, const RenderStats& sub) -> void
+{
+  total.triangles_processed += sub.triangles_processed;
+  total.triangles_culled_backface += sub.triangles_culled_backface;
+  total.triangles_culled_viewport += sub.triangles_culled_viewport;
+  total.triangles_culled_nearfar += sub.triangles_culled_nearfar;
+  total.triangles_degenerate += sub.triangles_degenerate;
+  total.triangles_rendered += sub.triangles_rendered;
+  total.pixels_shaded += sub.pixels_shaded;
+  total.pixels_written += sub.pixels_written;
 }
 
 } // namespace obzcene

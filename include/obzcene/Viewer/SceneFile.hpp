@@ -9,16 +9,18 @@
  * transform), the lights, and the camera. Format (one entry per line,
  * whitespace-separated, `#` comments, blank lines ignored):
  *
- *   version 1
- *   object <model.obj> <px> <py> <pz> <yaw> <scale>
+ *   version 2
+ *   object <model.obj> <px> <py> <pz> <rx> <ry> <rz> <sx> <sy> <sz>
  *   light  dir   <dx> <dy> <dz> <r> <g> <b> <intensity>
  *   light  point <px> <py> <pz> <r> <g> <b> <intensity>
  *   light  spot  <px> <py> <pz> <dx> <dy> <dz> <r> <g> <b> <intensity>
  *   camera <px> <py> <pz> <yaw> <pitch>
  *
- * Angles are radians, colours are linear RGB in 0..1. Unknown keywords and
- * malformed lines are skipped with a warning, so newer files degrade
- * gracefully in older builds.
+ * Angles are radians (object rotation is euler XYZ: pitch, yaw, roll),
+ * colours are linear RGB in 0..1. Version-1 files (object lines with yaw +
+ * uniform scale, 5 floats) are still accepted: the extra floats map to
+ * rotation.y and a uniform scale. Unknown keywords and malformed lines are
+ * skipped with a warning, so newer files degrade gracefully in older builds.
  *
  * @see Viewer/Scene.hpp (the in-memory scene this maps to/from)
  */
@@ -46,8 +48,8 @@ struct SceneFileObject
 {
   std::filesystem::path model_path;
   math::Vec3f           position{0.0F};
-  float                 yaw{0.0F};
-  float                 scale{1.0F};
+  math::Vec3f           rotation{0.0F};
+  math::Vec3f           scale{1.0F, 1.0F, 1.0F};
 };
 
 /** @brief A fully parsed scene file. */
@@ -122,21 +124,42 @@ inline auto parse_float_token(std::istringstream& iss, float& out) -> bool
 
     if (keyword == "version")
     {
-      continue; // single supported version; kept for future-proofing
+      continue; // the parser accepts both formats regardless of the header
     }
     if (keyword == "object")
     {
-      std::string model;
-      float       yaw = 0.0F, scale = 1.0F;
-      math::Vec3f position;
-      if (!(iss >> model) || !scene_file_detail::parse_vec3(iss, position) ||
-          !scene_file_detail::parse_float_token(iss, yaw) ||
-          !scene_file_detail::parse_float_token(iss, scale))
+      SceneFileObject object;
+      float           tail[6] = {0.0F, 0.0F, 0.0F, 1.0F, 1.0F, 1.0F};
+      std::string     model;
+      if (!(iss >> model) || !scene_file_detail::parse_vec3(iss, object.position))
       {
         warn();
         continue;
       }
-      data.objects.push_back(SceneFileObject{model, position, yaw, scale});
+      // v2 lines carry 6 floats (rotation xyz + scale xyz); v1 carry 2
+      // (yaw + uniform scale). Parse greedily and dispatch on the count.
+      auto tail_count = 0;
+      while (tail_count < 6 && scene_file_detail::parse_float_token(iss, tail[tail_count]))
+      {
+        ++tail_count;
+      }
+      if (tail_count == 6)
+      {
+        object.rotation = math::Vec3f{tail[0], tail[1], tail[2]};
+        object.scale    = math::Vec3f{tail[3], tail[4], tail[5]};
+      }
+      else if (tail_count == 2)
+      {
+        object.rotation = math::Vec3f{0.0F, tail[0], 0.0F};
+        object.scale    = math::Vec3f{tail[1], tail[1], tail[1]};
+      }
+      else
+      {
+        warn();
+        continue;
+      }
+      object.model_path = model;
+      data.objects.push_back(object);
       continue;
     }
     if (keyword == "light")
@@ -149,7 +172,7 @@ inline auto parse_float_token(std::istringstream& iss, float& out) -> bool
         warn();
         continue;
       }
-      // Order matches save_scene_file: point: pos; dir: dir; spot: pos dir.
+      // Order matches the writer: point: pos; dir: dir; spot: pos dir.
       const bool need_direction = type == "spot";
       if (need_direction && !scene_file_detail::parse_vec3(iss, b))
       {
@@ -202,12 +225,13 @@ inline auto parse_float_token(std::istringstream& iss, float& out) -> bool
 }
 
 /**
- * @brief Write a scene file. Object paths are written as given (relative
- *        paths stay portable when the scene file sits next to the models).
+ * @brief Write a scene file (version 2 format). Object paths are written as
+ *        given (relative paths stay portable when the scene file sits next
+ *        to the models).
  * @return True when the file was written.
  */
-inline auto save_scene_file(const std::filesystem::path&    path,
-                            const std::vector<SceneObject>& objects,
+inline auto save_scene_file(const std::filesystem::path&     path,
+                            const std::vector<ObjectHandle>& objects,
                             const std::vector<LightF>& lights, const CameraF& camera) -> bool
 {
   std::ofstream file(path);
@@ -215,12 +239,17 @@ inline auto save_scene_file(const std::filesystem::path&    path,
   {
     return false;
   }
-  file << "# obZcene scene\nversion 1\n";
+  file << "# obZcene scene\nversion 2\n";
   for (const auto& object : objects)
   {
-    file << "object " << object.source_path.string() << ' ' << object.position.x << ' '
-         << object.position.y << ' ' << object.position.z << ' ' << object.yaw << ' '
-         << object.scale << '\n';
+    if (object == nullptr)
+    {
+      continue;
+    }
+    file << "object " << object->source_path.string() << ' ' << object->position.x << ' '
+         << object->position.y << ' ' << object->position.z << ' ' << object->rotation.x << ' '
+         << object->rotation.y << ' ' << object->rotation.z << ' ' << object->scale.x << ' '
+         << object->scale.y << ' ' << object->scale.z << '\n';
   }
   for (const auto& light : lights)
   {

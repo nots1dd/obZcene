@@ -1,5 +1,6 @@
 #include <obzcene/Core/Logger.hpp>
 #include <obzcene/Viewer/FileBrowser.hpp>
+#include <obzcene/Viewer/Picking.hpp>
 #include <obzcene/Viewer/Scene.hpp>
 #include <obzcene/Viewer/SceneFile.hpp>
 #include <obzcene/Viewer/SceneObject.hpp>
@@ -30,8 +31,8 @@ TEST_CASE("SceneObject model matrix applies T*R*S about the origin", "[scene][tr
 {
   auto object      = obzcene::SceneObject{};
   object.position  = Vec3f{10, 20, 30};
-  object.yaw       = 0.0F;
-  object.scale     = 2.0F;
+  object.rotation  = Vec3f{0.0F};
+  object.scale     = Vec3f{2.0F, 2.0F, 2.0F};
   const auto m     = object.model_matrix();
   const auto point = m * obzcene::math::Vec4f{1, 0, 0, 1};
   REQUIRE(point.x == Catch::Approx(12.0F));
@@ -43,7 +44,7 @@ TEST_CASE("SceneObject yaw rotates about the position", "[scene][transform]")
 {
   auto object     = obzcene::SceneObject{};
   object.position = Vec3f{5, 0, 0};
-  object.yaw      = obzcene::math::deg_to_rad(90.0F);
+  object.rotation = Vec3f{0.0F, obzcene::math::deg_to_rad(90.0F), 0.0F};
   const auto m    = object.model_matrix();
   const auto p    = m * obzcene::math::Vec4f{1, 0, 0, 1};
   REQUIRE(p.x == Catch::Approx(5.0F).margin(1.0e-4F));
@@ -54,7 +55,7 @@ TEST_CASE("SceneObject transformed bounds enclose the transformed corners", "[sc
 {
   auto object      = obzcene::SceneObject{};
   object.position  = Vec3f{100, 0, 0};
-  object.scale     = 2.0F;
+  object.scale     = Vec3f{2.0F, 2.0F, 2.0F};
   const auto local = obzcene::math::AABBf{Vec3f{-1, -1, -1}, Vec3f{1, 1, 1}};
   const auto world = object.transformed_bounds(local);
   REQUIRE(world.min.x == Catch::Approx(98.0F));
@@ -70,12 +71,11 @@ TEST_CASE("scene file round-trips objects, lights and camera", "[scene][io]")
   auto scene = obzcene::Scene{};
   auto model = std::make_shared<obzcene::Model>();
   model->mesh.vertices.resize(3);
-  const auto index   = scene.add_object(model, Vec3f{1, 2, 3});
-  auto&      object  = scene.objects[index];
-  object.yaw         = 0.5F;
-  object.scale       = 2.5F;
-  object.name        = "cube.obj";
-  object.source_path = "models/cube.obj";
+  auto object         = scene.add_object(model, Vec3f{1, 2, 3});
+  object->rotation    = Vec3f{0.0F, 0.5F, 0.0F};
+  object->scale       = Vec3f{2.5F, 2.5F, 2.5F};
+  object->name        = "cube.obj";
+  object->source_path = "models/cube.obj";
   scene.lights.push_back(obzcene::LightF::point(Vec3f{1, 5, 2}, Vec3f{1, 0.5F, 0.25F}, 2.0F));
   scene.lights.push_back(obzcene::LightF::directional(Vec3f{0, -1, 0}, Vec3f{1, 1, 1}, 0.8F));
   scene.lights.push_back(
@@ -94,8 +94,9 @@ TEST_CASE("scene file round-trips objects, lights and camera", "[scene][io]")
   REQUIRE(loaded->objects[0].position.x == Catch::Approx(1.0F));
   REQUIRE(loaded->objects[0].position.y == Catch::Approx(2.0F));
   REQUIRE(loaded->objects[0].position.z == Catch::Approx(3.0F));
-  REQUIRE(loaded->objects[0].yaw == Catch::Approx(0.5F));
-  REQUIRE(loaded->objects[0].scale == Catch::Approx(2.5F));
+  REQUIRE(loaded->objects[0].rotation.y == Catch::Approx(0.5F));
+  REQUIRE(loaded->objects[0].scale.x == Catch::Approx(2.5F));
+  REQUIRE(loaded->objects[0].scale.y == Catch::Approx(2.5F));
 
   REQUIRE(loaded->lights.size() == 3);
   REQUIRE(loaded->lights[0].type == obzcene::LightType::Point);
@@ -241,5 +242,101 @@ TEST_CASE("scene load_model caches models (instancing)", "[scene][model]")
   const auto a = scene.add_object(first, Vec3f{0, 0, 0});
   const auto b = scene.add_object(second, Vec3f{5, 0, 0});
   REQUIRE(scene.instance_count(first) == 2);
-  REQUIRE(scene.objects[a].model == scene.objects[b].model);
+  REQUIRE(a->model == b->model);
+  REQUIRE(scene.index_of(a).value() == 0);
+  REQUIRE(scene.index_of(b).value() == 1);
+
+  // Handles stay valid when another object is removed.
+  scene.remove_object(a);
+  REQUIRE(scene.index_of(a) == std::nullopt);
+  REQUIRE(b->model == first);
+}
+
+namespace
+{
+/** @brief A bounds-only model (raycast tests don't need geometry). */
+auto box_model(const Vec3f& min, const Vec3f& max) -> std::shared_ptr<obzcene::Model>
+{
+  auto model               = std::make_shared<obzcene::Model>();
+  model->mesh.bounds       = {min, max};
+  model->mesh.object_count = 1;
+  model->mesh.materials.push_back(obzcene::Material{});
+  return model;
+}
+} // namespace
+
+TEST_CASE("raycast returns the nearest object with entry point and face", "[scene][picking]")
+{
+  obzcene::Scene scene;
+  const auto     far  = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -8});
+  const auto     near = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -4});
+
+  const auto hit =
+    obzcene::raycast(scene, obzcene::math::Rayf{{0.5F, 0.5F, 0}, {0, 0, -1}}, 100.0F);
+  REQUIRE(hit.has_value());
+  REQUIRE(hit->object == near);
+  REQUIRE(hit->t == Catch::Approx(3.0F));
+  REQUIRE(hit->point.x == Catch::Approx(0.5F));
+  REQUIRE(hit->point.z == Catch::Approx(-3.0F));
+  REQUIRE(hit->face == obzcene::math::Vec3i{0, 0, 1}); // front face of the box
+
+  const auto far_hit = obzcene::raycast(scene, obzcene::math::Rayf{{0.5F, 0.5F, 0}, {0, 0, -1}},
+                                        100.0F, [](const obzcene::ObjectHandle& object)
+                                        { return object->position.z < -5.0F; });
+  REQUIRE(far_hit.has_value());
+  REQUIRE(far_hit->object == far);
+  REQUIRE(far_hit->face == obzcene::math::Vec3i{0, 0, 1});
+}
+
+TEST_CASE("raycast respects range and skips excluded objects", "[scene][picking]")
+{
+  obzcene::Scene scene;
+  const auto     box = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -4});
+
+  REQUIRE(
+    !obzcene::raycast(scene, obzcene::math::Rayf{{0.5F, 0.5F, 0}, {0, 0, -1}}, 2.0F).has_value());
+  REQUIRE(!obzcene::raycast(scene, obzcene::math::Rayf{{0.5F, 0.5F, 0}, {0, 0, -1}}, 100.0F,
+                            [](const obzcene::ObjectHandle&) { return false; })
+             .has_value());
+  // Misses sideways: nullopt.
+  REQUIRE(
+    !obzcene::raycast(scene, obzcene::math::Rayf{{5, 0.5F, 0}, {0, 0, -1}}, 100.0F).has_value());
+}
+
+TEST_CASE("raycast honours object transforms (scale moves the box)", "[scene][picking]")
+{
+  obzcene::Scene scene;
+  const auto     box = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -4});
+  box->scale         = Vec3f{2, 2, 2}; // now spans [0,2]^3 about z=-4
+
+  const auto hit =
+    obzcene::raycast(scene, obzcene::math::Rayf{{1.5F, 1.5F, 0}, {0, 0, -1}}, 100.0F);
+  REQUIRE(hit.has_value());
+  REQUIRE(hit->t == Catch::Approx(2.0F));
+}
+
+TEST_CASE("aabb_entry_face finds the closest face and handles interior points", "[scene][picking]")
+{
+  const auto box = obzcene::math::AABBf{{0, 0, 0}, {2, 2, 2}};
+  REQUIRE(obzcene::aabb_entry_face(box, {0, 1, 1}) == obzcene::math::Vec3i{-1, 0, 0});
+  REQUIRE(obzcene::aabb_entry_face(box, {2, 1, 1}) == obzcene::math::Vec3i{1, 0, 0});
+  REQUIRE(obzcene::aabb_entry_face(box, {1, 2, 1}) == obzcene::math::Vec3i{0, 1, 0});
+  REQUIRE(obzcene::aabb_entry_face(box, {1, 1, 0}) == obzcene::math::Vec3i{0, 0, -1});
+  REQUIRE(obzcene::aabb_entry_face(box, {1, 1, 1}) == obzcene::math::Vec3i{0, 0, 0});
+}
+
+TEST_CASE("raycast_all returns every crossed object, nearest first", "[scene][picking]")
+{
+  obzcene::Scene scene;
+  const auto     far  = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -8});
+  const auto     near = scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{0, 0, -4});
+  scene.add_object(box_model({0, 0, 0}, {1, 1, 1}), Vec3f{5, 5, 5}); // off the ray
+
+  const auto hits =
+    obzcene::raycast_all(scene, obzcene::math::Rayf{{0.5F, 0.5F, 0}, {0, 0, -1}}, 100.0F);
+  REQUIRE(hits.size() == 2);
+  REQUIRE(hits[0].object == near);
+  REQUIRE(hits[1].object == far);
+  REQUIRE(hits[0].t < hits[1].t);
+  REQUIRE(hits[1].face == obzcene::math::Vec3i{0, 0, 1});
 }

@@ -123,10 +123,9 @@ auto load_scene(const SceneOptions& options) -> std::optional<Scene>
       LOG_ERROR("Failed to load model '{}'", options.model.string());
       return std::nullopt;
     }
-    const auto index   = scene.scene.add_object(std::move(model), math::Vec3f{0.0F});
-    auto&      object  = scene.scene.objects[index];
-    object.name        = options.model.filename().string();
-    object.source_path = options.model;
+    const auto handle   = scene.scene.add_object(std::move(model), math::Vec3f{0.0F});
+    handle->name        = options.model.filename().string();
+    handle->source_path = options.model;
   }
 
   if (scene.scene.objects.empty())
@@ -167,28 +166,8 @@ auto render_snapshot(const Scene& scene, const std::string& path) -> bool
   }
   clear_frame(frame_buffer);
   const auto t0    = std::chrono::steady_clock::now();
-  auto       stats = RenderStats{};
-  for (const auto& object : scene.scene.objects)
-  {
-    if (object.model == nullptr)
-    {
-      continue;
-    }
-    const auto bounds    = object.transformed_bounds(object.model->mesh.bounds);
-    const auto transform = ModelTransform{object.model_matrix(), object.normal_matrix()};
-    const auto uniforms =
-      FragmentUniforms{camera, render_lights, object.model->textures, scene.options.ambient};
-    const auto sub = render_object(frame_buffer, object.model->mesh, uniforms,
-                                   scene.options.wireframe, transform, &bounds);
-    stats.triangles_processed += sub.triangles_processed;
-    stats.triangles_culled_backface += sub.triangles_culled_backface;
-    stats.triangles_culled_viewport += sub.triangles_culled_viewport;
-    stats.triangles_culled_nearfar += sub.triangles_culled_nearfar;
-    stats.triangles_degenerate += sub.triangles_degenerate;
-    stats.triangles_rendered += sub.triangles_rendered;
-    stats.pixels_shaded += sub.pixels_shaded;
-    stats.pixels_written += sub.pixels_written;
-  }
+  const auto stats = render_scene(frame_buffer, scene.scene, camera, render_lights,
+                                  scene.options.ambient, scene.options.wireframe);
   const auto elapsed_ms =
     std::chrono::duration<float, std::milli>(std::chrono::steady_clock::now() - t0).count();
   LOG_INFO("Rasterized in {:.1f} ms: {} tris processed, {} drawn (bf {}, vp {}, near {}, deg {}), "

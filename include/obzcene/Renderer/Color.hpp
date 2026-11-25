@@ -40,6 +40,8 @@ struct Color
   /** @brief Default-constructed: opaque white. */
   constexpr Color() = default;
 
+  auto operator==(const Color&) const -> bool = default;
+
   /**
    * @param r_,g_,b_  Byte (0..255) components.
    * @param a_        Alpha byte, defaults to opaque.

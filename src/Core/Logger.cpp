@@ -47,7 +47,17 @@ auto Logger::init() -> void
 
 auto Logger::shutdown() -> void { spdlog::shutdown(); }
 
-auto Logger::get() -> std::shared_ptr<spdlog::logger>& { return s_core_logger; }
+auto Logger::get() -> std::shared_ptr<spdlog::logger>&
+{
+  // Self-initializing: components that live in statics or are constructed
+  // before main() (or before an explicit init()) must not crash on a null
+  // logger. init() still applies the colour pattern for interactive runs.
+  if (!s_core_logger)
+  {
+    s_core_logger = ensure_named_logger("CORE");
+  }
+  return s_core_logger;
+}
 
 auto Logger::get(const std::string& name) -> std::shared_ptr<spdlog::logger>
 {

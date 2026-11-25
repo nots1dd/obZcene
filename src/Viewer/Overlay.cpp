@@ -219,12 +219,12 @@ auto draw_hud(FrameBuffer& fb, const HudInput& input) -> void
   auto total_verts = usz{0};
   for (const auto& object : scene.objects)
   {
-    if (object.model == nullptr)
+    if (object == nullptr || object->model == nullptr)
     {
       continue;
     }
-    total_tris += object.model->mesh.triangles.size();
-    total_verts += object.model->mesh.vertices.size();
+    total_tris += object->model->mesh.triangles.size();
+    total_verts += object->model->mesh.vertices.size();
   }
 
   const auto lines = std::vector<std::string>{
@@ -283,11 +283,13 @@ auto draw_hud(FrameBuffer& fb, const HudInput& input) -> void
 
   if (input.selected_object >= 0 && static_cast<usz>(input.selected_object) < scene.objects.size())
   {
-    const auto& object = scene.objects[static_cast<usz>(input.selected_object)];
+    const auto& object = *scene.objects[static_cast<usz>(input.selected_object)];
     draw_line(line_index++,
-              linef("sel [%d] %s  pos(%.2f,%.2f,%.2f)  yaw %.1f  scale %.2f", input.selected_object,
-                    object.name.c_str(), object.position.x, object.position.y, object.position.z,
-                    math::rad_to_deg(object.yaw), object.scale),
+              linef("sel [%d] %s  pos(%.2f,%.2f,%.2f)  rot(%.0f,%.0f,%.0f)  scale %.2f",
+                    input.selected_object, object.name.c_str(), object.position.x,
+                    object.position.y, object.position.z, math::rad_to_deg(object.rotation.x),
+                    math::rad_to_deg(object.rotation.y), math::rad_to_deg(object.rotation.z),
+                    object.scale.x),
               kTextColor);
   }
 

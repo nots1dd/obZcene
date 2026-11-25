@@ -5,6 +5,7 @@
 #include <obzcene/Math/Vec3.hpp>
 #include <obzcene/Renderer/Camera.hpp>
 #include <obzcene/Renderer/Color.hpp>
+#include <obzcene/Renderer/Draw2D.hpp>
 #include <obzcene/Renderer/FrameBuffer.hpp>
 #include <obzcene/Renderer/Light.hpp>
 #include <obzcene/Renderer/Mesh.hpp>
@@ -460,4 +461,197 @@ TEST_CASE("fragment shading responds to light direction", "[renderer][shade]")
 
   const auto center = fb.at(32, 32);
   REQUIRE(brightness(center) < 20);
+}
+TEST_CASE("fog blend factor ramps from unfogged to fully fogged", "[renderer][fog]")
+{
+  const auto fog = obzcene::FogSettings{Vec3f{0.5F, 0.66F, 1.0F}, 10.0F, 30.0F};
+  REQUIRE(obzcene::fog_visibility(fog, 0.0F) == Catch::Approx(1.0F));
+  REQUIRE(obzcene::fog_visibility(fog, 10.0F) == Catch::Approx(1.0F));
+  REQUIRE(obzcene::fog_visibility(fog, 20.0F) == Catch::Approx(0.5F));
+  REQUIRE(obzcene::fog_visibility(fog, 30.0F) == Catch::Approx(0.0F));
+  REQUIRE(obzcene::fog_visibility(fog, 100.0F) == Catch::Approx(0.0F));
+
+  const auto off = obzcene::FogSettings{}; // disabled by default
+  REQUIRE(!off.enabled());
+  REQUIRE(obzcene::fog_visibility(off, 1000.0F) == Catch::Approx(1.0F));
+}
+
+TEST_CASE("distant fragments converge to the fog colour", "[renderer][fog]")
+{
+  auto mesh = make_quad_mesh(
+    []()
+    {
+      obzcene::Material m;
+      m.diffuse  = Vec3f{1.0F, 1.0F, 1.0F};
+      m.specular = Vec3f{0, 0, 0};
+      m.ambient  = Vec3f{1.0F, 1.0F, 1.0F}; // ambient-only, bright without lights
+      return m;
+    }());
+
+  obzcene::CameraF cam;
+  solid_lit_camera(cam);
+
+  const auto                lights   = std::vector<obzcene::LightF>{};
+  const auto                textures = std::vector<obzcene::Texture>{};
+  obzcene::FragmentUniforms uniforms{cam, lights, textures, 1.0F};
+  uniforms.fog = obzcene::FogSettings{Vec3f{0.2F, 0.4F, 0.8F}, 0.5F, 1.5F};
+
+  // The quad sits 2 units from the camera: beyond fog end -> pure fog colour.
+  obzcene::FrameBuffer fb{64, 64};
+  fb.clear(obzcene::Color{0, 0, 0});
+  fb.clear_depth();
+  obzcene::rasterize(mesh, uniforms, fb);
+
+  const auto center = fb.at(32, 32);
+  REQUIRE(center.r == Catch::Approx(0.2F * 255).margin(3));
+  REQUIRE(center.g == Catch::Approx(0.4F * 255).margin(3));
+  REQUIRE(center.b == Catch::Approx(0.8F * 255).margin(3));
+
+  // Same quad without fog: ambient-lit, NOT the fog colour.
+  uniforms.fog = obzcene::FogSettings{};
+  fb.clear(obzcene::Color{0, 0, 0});
+  fb.clear_depth();
+  obzcene::rasterize(mesh, uniforms, fb);
+  const auto unfogged = fb.at(32, 32);
+  REQUIRE(unfogged.r > 200);
+}
+
+TEST_CASE("draw2d rect fills inclusive bounds and clips to the framebuffer", "[renderer][draw2d]")
+{
+  obzcene::FrameBuffer fb{8, 8};
+  fb.clear(obzcene::Color{0, 0, 0});
+  const auto red = obzcene::Color{255, 0, 0};
+  obzcene::draw2d::rect(fb, 2, 3, 4, 5, red);
+  REQUIRE(fb.at(2, 3) == red);
+  REQUIRE(fb.at(4, 5) == red);
+  REQUIRE(fb.at(3, 4) == red);
+  REQUIRE(fb.at(1, 3) == obzcene::Color{0, 0, 0});
+  REQUIRE(fb.at(5, 5) == obzcene::Color{0, 0, 0});
+
+  // Off-screen rect is clipped, not a crash.
+  obzcene::draw2d::rect(fb, -100, -100, 0, 0, red);
+  REQUIRE(fb.at(0, 0) == red);
+  REQUIRE(fb.at(1, 1) == obzcene::Color{0, 0, 0});
+}
+
+TEST_CASE("draw2d disc and square respect radius and sky-only depth gating", "[renderer][draw2d]")
+{
+  obzcene::FrameBuffer fb{16, 16};
+  fb.clear(obzcene::Color{0, 0, 0});
+  const auto yellow = obzcene::Color{255, 240, 0};
+  obzcene::draw2d::disc(fb, 8, 8, 3, yellow);
+  REQUIRE(fb.at(8, 8) == yellow);
+  REQUIRE(fb.at(11, 8) == yellow);
+  REQUIRE(fb.at(8, 5) == yellow);
+  REQUIRE(fb.at(5, 5) == obzcene::Color{0, 0, 0}); // corner outside the circle
+  REQUIRE(fb.at(12, 8) == obzcene::Color{0, 0, 0});
+
+  obzcene::draw2d::square(fb, 4, 4, 2, yellow);
+  REQUIRE(fb.at(2, 2) == yellow);
+  REQUIRE(fb.at(6, 6) == yellow);
+
+  // Sky-only mode leaves already-rendered pixels (finite depth) untouched.
+  const auto white = obzcene::Color{255, 255, 255};
+  fb.clear_depth();
+  fb.depth_at(8, 8) = 0.5F;
+  obzcene::draw2d::disc(fb, 8, 8, 3, white, true);
+  REQUIRE(fb.at(8, 8) == yellow); // occluded: kept
+  REQUIRE(fb.at(10, 8) == white); // sky: painted
+}
+
+TEST_CASE("draw2d blending is src-over and put is bounds-checked", "[renderer][draw2d]")
+{
+  obzcene::FrameBuffer fb{4, 4};
+  fb.clear(obzcene::Color{0, 0, 200});
+  const auto half_red = obzcene::Color{200, 0, 0, 128};
+  obzcene::draw2d::put_blended(fb, 1, 1, half_red);
+  const auto blended = fb.at(1, 1);
+  REQUIRE(blended.r == Catch::Approx(200.0F * 128 / 255).margin(2));
+  REQUIRE(blended.b == Catch::Approx(200.0F * 127 / 255).margin(2));
+
+  // Out-of-range writes are silently ignored.
+  obzcene::draw2d::put(fb, -1, 99, obzcene::Color{1, 2, 3});
+  REQUIRE(fb.at(1, 1) == blended);
+}
+
+TEST_CASE("draw2d line connects both endpoints", "[renderer][draw2d]")
+{
+  obzcene::FrameBuffer fb{16, 16};
+  fb.clear(obzcene::Color{0, 0, 0});
+  const auto green = obzcene::Color{0, 255, 0};
+  obzcene::draw2d::line(fb, 1, 1, 14, 6, green);
+  REQUIRE(fb.at(1, 1) == green);
+  REQUIRE(fb.at(14, 6) == green);
+  REQUIRE(fb.at(7, 3).g == 255); // midpoint is on the line
+}
+
+TEST_CASE("ambient term is modulated by the diffuse base colour", "[renderer][shade]")
+{
+  obzcene::CameraF cam;
+  solid_lit_camera(cam);
+  const auto lights   = std::vector<obzcene::LightF>{};
+  const auto textures = std::vector<obzcene::Texture>{};
+
+  obzcene::FragmentInput input;
+  input.world_position = Vec3f{0, 0, -2};
+  input.normal         = Vec3f{0, 0, 1};
+  input.uv             = Vec2f{0.5F, 0.5F};
+  input.material_index = 0;
+
+  obzcene::Material m;
+  m.diffuse  = Vec3f{0.5F, 0.25F, 0.125F};
+  m.ambient  = Vec3f{1.0F, 1.0F, 1.0F};
+  m.specular = Vec3f{0, 0, 0};
+  m.emissive = Vec3f{0, 0, 0};
+
+  // No lights: the pixel must be Ka x base x intensity, NOT a flat grey.
+  obzcene::FragmentUniforms uniforms{cam, lights, textures, 1.0F};
+  const auto                shaded = obzcene::shade_fragment(input, m, uniforms);
+  REQUIRE(shaded.r == Catch::Approx(0.5F * 255).margin(2));
+  REQUIRE(shaded.g == Catch::Approx(0.25F * 255).margin(2));
+  REQUIRE(shaded.b == Catch::Approx(0.125F * 255).margin(2));
+
+  // Ka tints the ambient as well: Ka=(1, 0.5, 0) keeps r, halves g, kills b.
+  m.ambient         = Vec3f{1.0F, 0.5F, 0.0F};
+  const auto tinted = obzcene::shade_fragment(input, m, uniforms);
+  REQUIRE(tinted.r == Catch::Approx(0.5F * 255).margin(2));
+  REQUIRE(tinted.g == Catch::Approx(0.125F * 255).margin(2));
+  REQUIRE(tinted.b == Catch::Approx(0.0F).margin(2));
+
+  // Zero ambient intensity means pitch black with no lights.
+  uniforms.ambient_intensity = 0.0F;
+  const auto dark            = obzcene::shade_fragment(input, m, uniforms);
+  REQUIRE(dark.r == 0);
+  REQUIRE(dark.g == 0);
+  REQUIRE(dark.b == 0);
+}
+
+TEST_CASE("clear_frame_gradient interpolates top to bottom rows", "[renderer][sky]")
+{
+  obzcene::FrameBuffer fb{4, 5};
+  obzcene::clear_frame_gradient(fb, obzcene::Color{0, 0, 0}, obzcene::Color{255, 255, 255});
+  REQUIRE(fb.at(0, 0) == obzcene::Color{0, 0, 0});
+  REQUIRE(fb.at(0, 4) == obzcene::Color{255, 255, 255});
+  const auto mid = fb.at(0, 2);
+  REQUIRE(mid.r == Catch::Approx(127.5F).margin(2));
+  REQUIRE(mid.r == mid.g);
+  REQUIRE(mid.g == mid.b);
+  // Monotonic down the rows.
+  REQUIRE(fb.at(1, 1).r < fb.at(1, 3).r);
+  // Depth is cleared for the render pass.
+  REQUIRE(fb.depth_at(0, 0) == obzcene::FrameBuffer::kInfinityDepth);
+}
+
+TEST_CASE("draw2d sky-only sprites are safe when centred off-screen", "[renderer][draw2d]")
+{
+  obzcene::FrameBuffer fb{16, 16};
+  fb.clear(obzcene::Color{0, 0, 0});
+  fb.clear_depth();
+  // A sun/moon sprite projected past the edge: must not read depth OOB.
+  obzcene::draw2d::disc(fb, -8, -8, 10, obzcene::Color{255, 240, 170}, true, false);
+  obzcene::draw2d::square(fb, 100, 100, 20, obzcene::Color{255, 240, 170}, true, false);
+  obzcene::draw2d::line(fb, -50, -50, 100, 100, obzcene::Color{255, 255, 255}, true, true);
+  REQUIRE(fb.at(0, 0).r == 255); // the line crosses the corner pixel
+  REQUIRE(fb.at(1, 1).r == 255);
+  REQUIRE(fb.at(4, 4).r == 255);
 }

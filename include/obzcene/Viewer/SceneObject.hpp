@@ -6,9 +6,9 @@
  *
  * obZcene scenes are flat lists of SceneObjects. An object references its
  * geometry through a std::shared_ptr so several objects can instance the same
- * model (loaded once via obzcene::Scene::load_model), and carries a TRS
- * transform (translation, yaw, uniform scale) applied per-vertex by the
- * rasterizer through the matrix from #model_matrix.
+ * model (loaded once via obzcene::Scene::load_model), and carries a full TRS
+ * transform (translation, euler rotation, per-axis scale) applied per-vertex
+ * by the rasterizer through the matrix from #model_matrix.
  *
  * @see Viewer/Scene.hpp (the scene container), Renderer/Rasterizer.hpp
  *      (the consumer of the model matrix)
@@ -30,6 +30,9 @@ struct Model;
 
 /**
  * @brief One placed instance in a scene.
+ *
+ * Rotation is stored as euler angles in radians, applied X (pitch) then Y
+ * (yaw) then Z (roll) — i.e. the model matrix is T·Ry·Rx·Rz·S.
  */
 struct SceneObject
 {
@@ -37,35 +40,40 @@ struct SceneObject
   std::shared_ptr<const Model> model;
   /** @brief World-space translation of the model's origin. */
   math::Vec3f position{0.0F};
-  /** @brief Rotation about the world +Y axis, radians (yaw). */
-  float yaw{0.0F};
-  /** @brief Uniform scale factor (1 = original size). */
-  float scale{1.0F};
+  /** @brief Euler rotation in radians: x = pitch, y = yaw, z = roll. */
+  math::Vec3f rotation{0.0F};
+  /** @brief Per-axis scale factor (1 = original size). */
+  math::Vec3f scale{1.0F, 1.0F, 1.0F};
   /** @brief Display name (defaults to the source file stem). */
   std::string name;
   /** @brief Path the model was loaded from (used when saving the scene). */
   std::filesystem::path source_path;
 
   /**
-   * @brief Model matrix: translate(position) * rotate_y(yaw) * scale(scale).
+   * @brief Model matrix: translate(position) · Ry(yaw) · Rx(pitch) · Rz(roll)
+   *        · scale.
    *
-   * Composed so that yaw and scale apply about the mesh's own origin before
-   * it is moved to #position, which is the natural "place this here" pivot.
+   * Composed so that rotation and scale apply about the mesh's own origin
+   * before it is moved to #position, which is the natural "place this here"
+   * pivot.
    */
   [[nodiscard]] auto model_matrix() const -> math::Mat4f
   {
     return math::Mat4f::translation(position.x, position.y, position.z) *
-           math::Mat4f::rotation_y(yaw) * math::Mat4f::scaling(scale, scale, scale);
+           math::Mat4f::rotation_y(rotation.y) * math::Mat4f::rotation_x(rotation.x) *
+           math::Mat4f::rotation_z(rotation.z) * math::Mat4f::scaling(scale.x, scale.y, scale.z);
   }
 
   /**
    * @brief Normal matrix: inverse-transpose of the model's 3x3 block.
    *
-   * Yaw is a rotation (orthogonal) and uniform scaling commutes out as a
-   * scalar that the per-pixel normalize in the shader removes, so this is
-   * simply the yaw rotation; normals are normalized after transform anyway.
+   * Required for correctness with non-uniform scale; for pure rotation or
+   * uniform scale this equals the rotation (the shader normalizes anyway).
    */
-  [[nodiscard]] auto normal_matrix() const -> math::Mat3f { return math::Mat3f::rotation_y(yaw); }
+  [[nodiscard]] auto normal_matrix() const -> math::Mat3f
+  {
+    return model_matrix().upper3().inverse().transpose();
+  }
 
   /**
    * @brief World-space AABB of the given mesh bounds under this transform

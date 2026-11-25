@@ -39,8 +39,11 @@ public:
    * @brief Create a visible SDL window.
    * @param title   Window caption.
    * @param width,height  Logical client size in pixels.
+   * @param gpu     Create an OpenGL 3.3 core context instead of the 2D
+   *                renderer (GPU backend; present() is unused, call
+   *                #swap_buffers after drawing).
    */
-  Window(const std::string& title, int width, int height);
+  Window(const std::string& title, int width, int height, bool gpu = false);
   /** @brief Destroy the SDL resources (and shut SDL down when last owner). */
   ~Window();
 
@@ -77,12 +80,18 @@ public:
   /** @brief Enable/disable the relative mouse mode (locks and hides cursor). */
   auto set_relative_mouse(bool enabled) -> void;
 
+  /** @brief True when this window owns an OpenGL context (GPU backend). */
+  [[nodiscard]] auto is_gpu() const -> bool { return m_gl_context != nullptr; }
+  /** @brief Swap the GL back buffer (GPU backend only). */
+  auto swap_buffers() -> void;
+
 private:
   /** @brief Lazily (re)create the streaming texture matching a framebuffer size. */
   auto ensure_framebuffer(int width, int height) -> SDL_Texture*;
 
   SDL_Window*   m_window{nullptr};
   SDL_Renderer* m_renderer{nullptr};
+  SDL_GLContext m_gl_context{nullptr};
   SDL_Texture*  m_framebuffer{nullptr};
   int           m_framebuffer_width{0};
   int           m_framebuffer_height{0};

@@ -34,7 +34,8 @@ public:
   /** @brief Flush and release all spdlog resources. */
   static auto shutdown() -> void;
 
-  /** @brief The core logger (may be used directly, e.g. `LOG_INFO`). */
+  /** @brief The core logger (may be used directly, e.g. `LOG_INFO`).
+   *  Self-initializes on first use so logging before init() is safe. */
   [[nodiscard]] static auto get() -> std::shared_ptr<spdlog::logger>&;
   /**
    * @brief A lazily-created logger under the given `name`.

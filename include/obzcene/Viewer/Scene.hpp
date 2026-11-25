@@ -5,19 +5,24 @@
  * @brief The editable scene: a flat list of objects plus lights, plus the
  *        model cache and loader used to populate it.
  *
- * obzcene::Scene is the editor's document model: everything the interactive
- * viewer mutates lives here (objects with their transforms, the light list).
- * Models are shared through a path-keyed cache so adding the same OBJ twice
- * instances it instead of reloading. SceneFile.hpp maps this state to disk;
- * Viewer.hpp mutates it at runtime.
+ * obzcene::Scene is the engine's scene state: everything the interactive
+ * viewer or a game mutates lives here (objects with their transforms, the
+ * light list). Objects are held by shared_ptr so handles stay valid across
+ * edits and removals (the vector only reorders/repoints). Models are shared
+ * through a path-keyed cache so adding the same OBJ twice instances it
+ * instead of reloading. SceneFile.hpp maps this state to disk; Viewer.hpp
+ * and Engine mutate it at runtime.
  *
  * @see Viewer/SceneObject.hpp, Viewer/SceneFile.hpp, src/Viewer/Scene.cpp
  */
 
 #include "obzcene/Math/AABB.hpp"
 #include "obzcene/Renderer/Camera.hpp"
+#include "obzcene/Renderer/FrameBuffer.hpp"
 #include "obzcene/Renderer/Light.hpp"
 #include "obzcene/Renderer/Mesh.hpp"
+#include "obzcene/Renderer/RenderStats.hpp"
+#include "obzcene/Renderer/Shader.hpp"
 #include "obzcene/Texture/Texture.hpp"
 #include "obzcene/Viewer/SceneObject.hpp"
 
@@ -43,14 +48,22 @@ struct Model
   std::vector<Texture> textures;
 };
 
+/** @brief Shared handle to a placed object; stays valid across scene edits. */
+using ObjectHandle = std::shared_ptr<SceneObject>;
+
 /**
- * @brief The editor's scene state: objects, lights and the model cache.
+ * @brief The scene state: object handles, lights and the model cache.
  */
 class Scene
 {
 public:
-  /** @brief All placed objects, in draw order. */
-  std::vector<SceneObject> objects;
+  /**
+   * @brief All placed objects, in draw order.
+   *
+   * Held by shared_ptr so a handle obtained from #add_object (or by indexing
+   * here) remains valid when other objects are added or removed.
+   */
+  std::vector<ObjectHandle> objects;
   /** @brief Scene lights (world-space; the headlamp is a viewer-side extra). */
   std::vector<LightF> lights;
 
@@ -65,13 +78,19 @@ public:
     -> std::shared_ptr<const Model>;
 
   /**
-   * @brief Append an object for `model` at `position` and select it.
-   * @return Index into #objects of the new object.
+   * @brief Append an object for `model` at `position`.
+   * @return A stable handle to the new object (also appended to #objects).
    */
-  auto add_object(std::shared_ptr<const Model> model, const math::Vec3f& position) -> usz;
+  auto add_object(std::shared_ptr<const Model> model, const math::Vec3f& position) -> ObjectHandle;
 
-  /** @brief Remove object `index` (no-op when out of range). */
-  auto remove_object(usz index) -> void;
+  /** @brief Remove the object pointed to by `handle` (no-op when not found). */
+  auto remove_object(const ObjectHandle& handle) -> void;
+
+  /** @brief Remove the object at `index` (no-op when out of range). */
+  auto remove_object_at(usz index) -> void;
+
+  /** @brief Find the index of `handle` in #objects, or std::nullopt. */
+  [[nodiscard]] auto index_of(const ObjectHandle& handle) const -> std::optional<usz>;
 
   /**
    * @brief Combined world-space bounds of all objects (transform-aware).
@@ -89,6 +108,29 @@ private:
   /** @brief Loaded models keyed by canonical path string. */
   std::unordered_map<std::string, std::shared_ptr<const Model>> m_model_cache;
 };
+
+/**
+ * @brief Render the whole scene into `fb` (already cleared).
+ * @param fb        Target framebuffer.
+ * @param scene     The scene to draw.
+ * @param camera    Camera for view transform and frustum culling.
+ * @param lights    Resolved world-space lights.
+ * @param ambient   Global ambient intensity (scales material ambient).
+ * @param wireframe Draw outlines instead of shaded triangles.
+ * @param filter    Texture filtering for diffuse maps (Nearest keeps
+ *                  pixel-art textures crisp; Linear is the default).
+ * @return Merged rasterizer counters across all objects.
+ *
+ * @note Each object is rendered with its model matrix, frustum-culled
+ *       against its transform-aware world bounds, with its own texture table.
+ *       Objects are drawn nearest-to-camera first so the depth test rejects
+ *       occluded fragments before shading (the image itself is unchanged —
+ *       depth testing is order-independent).
+ */
+[[nodiscard]] auto render_scene(FrameBuffer& fb, const Scene& scene, const CameraF& camera,
+                                const std::vector<LightF>& lights, float ambient, bool wireframe,
+                                TextureFilter filter = TextureFilter::Linear, FogSettings fog = {})
+  -> RenderStats;
 
 /**
  * @brief Load a model: parse the OBJ, build the mesh, load its textures.

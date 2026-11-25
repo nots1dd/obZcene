@@ -15,7 +15,7 @@ Or run an individual binary directly, e.g. `./build/math-tests`.
 
 ## Test binaries
 
-Eight ctest executables, 14 test files, roughly 210 `TEST_CASE`s:
+Nine ctest executables, 17 test files, roughly 230 `TEST_CASE`s:
 
 | Binary | Files | Covers |
 |---|---|---|
@@ -27,6 +27,7 @@ Eight ctest executables, 14 test files, roughly 210 `TEST_CASE`s:
 | `culling-tests` | `test_culling.cpp` | Rasterizer cull stages, perspective-correct interpolation helpers |
 | `overlay-tests` | `test_overlay.cpp` | Bitmap font metrics, text drawing, the editor HUD |
 | `scene-tests` | `test_scene.cpp` | SceneObject transforms/bounds, `.obzscene` round-trip and malformed-line tolerance, file-browser navigation/filtering, model cache instancing |
+| `engine-tests` | `test_engine.cpp`, `test_input.cpp`, `test_audio.cpp` | Engine config/accessors, asset registry (resolve/cache/missing), Input edge detection and mouse delta, WAV decoding, offline audio no-ops |
 
 Asset-dependent tests read `ASSETS_DIR`; the parser-tests target also defines
 it as a compile definition, and test code falls back to the relative path
@@ -44,9 +45,10 @@ it as a compile definition, and test code falls back to the relative path
 
 ## Known gaps
 
-- `Viewer`, `Window`, and the snapshot path (`render_snapshot`,
-  `write_ppm`, `load_image`) have no automated tests — they need SDL or file
-  output, so they are currently exercised only manually.
+- `Window` and the interactive loops (`Viewer`, `Engine::run`) have no
+  automated tests — they need a display, so they are exercised only manually.
+  The engine-side pieces that do have tests: assets registry, input state
+  machine, audio decode/offline paths, scene model.
 - No golden-image regression test: snapshot output is never compared against
   a reference image.
 - No performance/benchmark harness, so rasterizer changes have no

@@ -13,7 +13,9 @@ testing, and shading all run on the CPU in plain C++.
 | Document | Contents |
 |---|---|
 | [architecture.md](architecture.md) | Engine structure, module responsibilities, frame data flow |
-| [build-and-usage.md](build-and-usage.md) | Dependencies, build steps, CLI options, viewer controls |
+| [api.md](api.md) | The public game API: Engine, Game, Scene, Assets, Input, Audio |
+| [design-review.md](design-review.md) | Pre-API roadblocks found and how each was resolved |
+| [build-and-usage.md](build-and-usage.md) | Dependencies, build steps, CLI options, viewer controls, scene format |
 | [testing.md](testing.md) | Test layout, how to run, what is covered |
 | [improvements.md](improvements.md) | Observed issues: code quality, performance, testing gaps |
 
@@ -44,16 +46,23 @@ testing, and shading all run on the CPU in plain C++.
 ```
 include/obzcene/   Public headers — most of the engine is header-only
   App/             Entry point + scene assembly declarations
-  Core/            Logger, shared types, checked casts
+  Core/            Logger, threading, input primitives, shared types, casts
+  Engine/          Game-facing facade: Engine, Game, Input, Assets, Audio
   File/            OBJ and MTL parsers (header-only)
   Math/            Vec/Mat/Quaternion/Ray/Plane/AABB/Frustum (header-only)
   Renderer/        Camera, FrameBuffer, Mesh, Rasterizer, Shader, Light, Window
   Texture/         Texture storage/sampling, image load/write
-  Viewer/          Interactive viewer, HUD overlay
+  Viewer/          Scene model, editor viewer, overlay, file browser
   utils/           Timer and string helpers (used by Backtrace)
+  obzcene.hpp      Umbrella header for game developers
   Backtrace.hpp    Debug-only stack-trace event log
 src/               .cpp implementations for the non-header-only parts
+examples/          Small games written against the public API
 tests/             Catch2 test suites
 assets/models/     Sample OBJ models (Cube, plane, Skull, bugatti, ...)
 external/          Vendored dependencies (spdlog, CLI11, Catch2, libbacktrace)
 ```
+
+The build produces `libobzcene.a` (the engine, for games and tools),
+`obZcene` (the editor/viewer CLI shell) and `sandbox-example` (a game using
+the API).
